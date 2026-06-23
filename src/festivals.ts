@@ -387,6 +387,10 @@ function findTithiIntervalInMonth(
   for (const nm of nms) starts.push(nm);
   if (nms.length > 0) starts.push(new Date(nms[nms.length - 1].getTime() + SYNODIC_MS));
 
+  // Determine whether the rule explicitly requests the adhika lunation.
+  // This must be decided BEFORE scanning so we can adjust label matching.
+  const requestsAdhika = /adhika/i.test(monthPurnimanta);
+
   const matches: { interval: { start: Date; end: Date }; adhika: boolean }[] = [];
   const seen = new Set<number>();
 
@@ -397,39 +401,90 @@ function findTithiIntervalInMonth(
     if (seen.has(key)) continue;
     seen.add(key);
 
-    // Label check at the tithi's midpoint (Adhika/Nija prefixes part of label).
+    // Label check at the tithi's midpoint.
+    // In pūrṇimānta the kṛṣṇa pakṣa of an amānta month carries the NEXT amānta
+    // month's name (e.g. kṛṣṇa pakṣa of Adhika Jyeṣṭha → purnimantaLabel =
+    // "Adhika Āṣāḍha").  When the rule requests an adhika month we therefore
+    // also check the AMĀNTA label — but ONLY for genuinely adhika lunations — so
+    // that both the śukla and the kṛṣṇa fortnights of the adhika lunation are
+    // captured without also matching the nija lunation's kṛṣṇa pakṣa.
     const mid = new Date((interval.start.getTime() + interval.end.getTime()) / 2);
     const lm = lunarMonth(mid, { system: "purnimanta" });
-    if (normalizeLabel(lm.purnimantaLabel) === normalizeLabel(monthPurnimanta)) {
+    const purnimantaMatch = normalizeLabel(lm.purnimantaLabel) === normalizeLabel(monthPurnimanta);
+    // Amānta fallback: only used when requesting an adhika month AND the tithi
+    // itself belongs to an adhika lunation (prevents nija kṛṣṇa-pakṣa false hits).
+    const amantaMatch = requestsAdhika && lm.adhika &&
+      normalizeLabel(lm.amantaLabel) === normalizeLabel(monthPurnimanta);
+    if (purnimantaMatch || amantaMatch) {
       matches.push({ interval, adhika: lm.adhika });
     }
   }
 
   if (matches.length === 0) {
-    diagnostics.push(
-      `no tithi ${n} found in pūrṇimānta month "${monthPurnimanta}" during ${year}`,
-    );
+    if (requestsAdhika) {
+      diagnostics.push(
+        `no Adhika ${normalizeLabel(monthPurnimanta)} lunation found in ${year}; ` +
+          `rule "${monthPurnimanta}" requires an adhika month that does not exist this year`,
+      );
+    } else {
+      diagnostics.push(
+        `no tithi ${n} found in pūrṇimānta month "${monthPurnimanta}" during ${year}`,
+      );
+    }
     return null;
   }
   if (matches.length > 1) {
     // In a leap year the same normalized month name appears in both the Adhika and
-    // the Nija (regular) lunation.  Festivals canonically fall in the Nija month,
-    // so prefer the non-adhika occurrence.  Only fall back to the earliest when
-    // there is no non-adhika match (genuine ambiguity).
-    const nija = matches.find((m) => !m.adhika);
-    if (nija) {
+    // the Nija (regular) lunation.
+    if (requestsAdhika) {
+      // Rule explicitly targets the Adhika lunation (e.g. "Adhika Jyeshtha").
+      const adhika = matches.find((m) => m.adhika);
+      if (adhika) {
+        diagnostics.push(
+          `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
+            `(adhika month present); rule requests Adhika — selecting the adhika lunation`,
+        );
+        return adhika.interval;
+      }
+      // No adhika lunation found among matches despite requestsAdhika — should not
+      // happen if normalizeLabel correctly stripped the prefix, but guard anyway.
+      diagnostics.push(
+        `rule "${monthPurnimanta}" requests an adhika lunation but none was found ` +
+          `among ${matches.length} matches in ${year}; returning null`,
+      );
+      return null;
+    } else {
+      // Festivals canonically fall in the Nija month; prefer the non-adhika occurrence.
+      const nija = matches.find((m) => !m.adhika);
+      if (nija) {
+        diagnostics.push(
+          `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
+            `(adhika month present); preferring the Nija (non-adhika) lunation`,
+        );
+        return nija.interval;
+      }
+      // All matches are adhika (unusual) — fall back to earliest.
       diagnostics.push(
         `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
-          `(adhika month present); preferring the Nija (non-adhika) lunation`,
+          `(all adhika?); using the earliest`,
       );
-      return nija.interval;
     }
-    // All matches are adhika (unusual) — fall back to earliest.
-    diagnostics.push(
-      `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
-        `(all adhika?); using the earliest`,
-    );
   }
+
+  if (requestsAdhika && matches.length === 1) {
+    // Single match for an adhika-requested rule — verify it is actually the adhika lunation.
+    if (!matches[0].adhika) {
+      diagnostics.push(
+        `rule "${monthPurnimanta}" requests an adhika lunation but only a non-adhika ` +
+          `match was found in ${year}; no Adhika ${normalizeLabel(monthPurnimanta)} ` +
+          `lunation exists this year`,
+      );
+      return null;
+    }
+    // Single adhika match — return it directly.
+    return matches[0].interval;
+  }
+
   matches.sort((a, b) => a.interval.start.getTime() - b.interval.start.getTime());
   return matches[0].interval;
 }
