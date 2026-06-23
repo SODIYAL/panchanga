@@ -23,6 +23,7 @@ import {
   type PervasionCandidate,
 } from "../src/festivals.js";
 import type { FestivalRule, GeoLocation } from "../src/types.js";
+import { lunarMonth } from "../src/elements.js";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Helpers for constructed candidates
@@ -190,6 +191,26 @@ describe("selectDayByPervasion — fallback when pervaded on no day", () => {
     });
     expect(r.chosen).toBeNull();
     expect(r.diagnostics.join(" ")).toMatch(/nakshatra/i);
+  });
+
+  it("required-nakshatra wipeout does NOT trigger the day-fallback (distinct from non-pervasion)", () => {
+    // Both days pervade (positive coverage) but neither has the required nakshatra.
+    // The fallback clause is configured, but it must NOT fire — this is a nakshatra
+    // elimination, not a non-pervasion event.  Old code set fallbackApplied to the
+    // configured fallback regardless; the fix gates it to genuine non-pervasion only.
+    const day1 = candidate("2026-01-03", 0.6, { nakshatraOk: false });
+    const day2 = candidate("2026-01-04", 0.4, { nakshatraOk: false });
+    const r = selectDayByPervasion([day1, day2], {
+      precedence: "max-window-fraction",
+      nakshatra: "required",
+      fallback: "previous-day", // configured but must NOT fire on nakshatra wipeout
+    });
+    expect(r.chosen).toBeNull();
+    // fallback must be null — this is a nakshatra failure, not a non-pervasion failure.
+    expect(r.fallbackApplied).toBeNull();
+    // Diagnostic must name the nakshatra cause, NOT the pervasion cause.
+    expect(r.diagnostics.join(" ")).toMatch(/nakshatra/i);
+    expect(r.diagnostics.join(" ")).not.toMatch(/did not pervade/i);
   });
 });
 
@@ -367,6 +388,41 @@ describe("computeFestival — wiring smoke tests (real ephemeris, NOT fixtures)"
     const expected = new Date(`${baseR.date}T00:00:00Z`);
     expected.setUTCDate(expected.getUTCDate() + 1);
     expect(derivedR.date).toBe(expected.toISOString().slice(0, 10));
+  });
+});
+
+describe("computeFestival — adhika/nija lunation resolution (2026 Adhika Jyeshtha)", () => {
+  // In 2026 there is an Adhika Jyeshtha (leap month) roughly 17 May–15 Jun,
+  // followed immediately by the regular Nija Jyeshtha (~16 Jun–14 Jul).
+  // A rule with month:"Jyeshtha" must resolve to the NIJA lunation, not the
+  // adhika one.  The old code returned matches[0] = earliest = the Adhika
+  // lunation, which is wrong for all standard festivals.
+  it("tithi-pervades with month:Jyeshtha resolves to the Nija (non-adhika) lunation in 2026", () => {
+    const rule: FestivalRule = {
+      id: "smoke-jyeshtha-nija",
+      displayName: "Smoke Jyeshtha Nija",
+      month: { purnimanta: "Jyeshtha" },
+      category: "lunar-tithi",
+      observance: {
+        kind: "tithi-pervades",
+        paksha: "shukla",
+        tithi: 11, // Ekadashi — a common festival tithi; unambiguously in Jyeshtha
+        window: "purvahna",
+        precedence: "max-window-fraction",
+      },
+    };
+    const result = computeFestival(rule, 2026, NEW_DELHI);
+    expect(result.date).not.toBe("");
+
+    // The Adhika Jyeshtha 2026 ends by ~15 Jun 2026; Nija Jyeshtha follows.
+    // Assert the resolved date falls AFTER the Adhika lunation boundary.
+    const resolvedMs = new Date(`${result.date}T12:00:00Z`).getTime();
+    const adhikaBoundary = new Date("2026-06-15T00:00:00Z").getTime();
+    expect(resolvedMs).toBeGreaterThan(adhikaBoundary);
+
+    // Also assert the resolved date is in a non-adhika lunation.
+    const lm = lunarMonth(new Date(`${result.date}T12:00:00Z`), { system: "purnimanta" });
+    expect(lm.adhika).toBe(false);
   });
 });
 

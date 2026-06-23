@@ -179,12 +179,28 @@ export function selectDayByPervasion(
   const pervading = withCoverage.filter((x) => x.frac > 0);
 
   if (pervading.length === 0) {
-    // No day pervades — fallback (or simply unresolved).
+    // Distinguish two causes of an empty survivor set:
+    //  a) Required-nakshatra wipeout: candidates pervaded but all lacked the
+    //     required nakshatra.  This is NOT a non-pervasion event — do NOT apply
+    //     the day-fallback; return no date with a nakshatra-specific diagnostic.
+    //  b) Genuine non-pervasion: the tithi simply did not overlap the kāla window
+    //     on any candidate day.  Apply the fallback (if configured).
     if (pool.length === 0 && opts.nakshatra === "required") {
-      diagnostics.push("no candidate satisfied the required nakshatra; no day chosen");
-    } else {
-      diagnostics.push("tithi did not pervade the window on any candidate day");
+      // pool was emptied by the required-nakshatra filter (candidates existed but
+      // none had the required nakshatra).
+      diagnostics.push(
+        "required nakshatra not satisfied: candidates pervaded but none had the required nakshatra; no day chosen",
+      );
+      return {
+        chosen: null,
+        coverageFraction: 0,
+        fallbackApplied: null, // NOT a pervasion failure — fallback does not apply
+        bhadraOverlap: null,
+        diagnostics,
+      };
     }
+    // Genuine non-pervasion: tithi did not overlap the window on any surviving day.
+    diagnostics.push("tithi did not pervade the window on any candidate day");
     return {
       chosen: null,
       coverageFraction: 0,
@@ -371,7 +387,7 @@ function findTithiIntervalInMonth(
   for (const nm of nms) starts.push(nm);
   if (nms.length > 0) starts.push(new Date(nms[nms.length - 1].getTime() + SYNODIC_MS));
 
-  const matches: { start: Date; end: Date }[] = [];
+  const matches: { interval: { start: Date; end: Date }; adhika: boolean }[] = [];
   const seen = new Set<number>();
 
   for (const nmStart of starts) {
@@ -385,7 +401,7 @@ function findTithiIntervalInMonth(
     const mid = new Date((interval.start.getTime() + interval.end.getTime()) / 2);
     const lm = lunarMonth(mid, { system: "purnimanta" });
     if (normalizeLabel(lm.purnimantaLabel) === normalizeLabel(monthPurnimanta)) {
-      matches.push(interval);
+      matches.push({ interval, adhika: lm.adhika });
     }
   }
 
@@ -396,13 +412,26 @@ function findTithiIntervalInMonth(
     return null;
   }
   if (matches.length > 1) {
+    // In a leap year the same normalized month name appears in both the Adhika and
+    // the Nija (regular) lunation.  Festivals canonically fall in the Nija month,
+    // so prefer the non-adhika occurrence.  Only fall back to the earliest when
+    // there is no non-adhika match (genuine ambiguity).
+    const nija = matches.find((m) => !m.adhika);
+    if (nija) {
+      diagnostics.push(
+        `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
+          `(adhika month present); preferring the Nija (non-adhika) lunation`,
+      );
+      return nija.interval;
+    }
+    // All matches are adhika (unusual) — fall back to earliest.
     diagnostics.push(
       `${matches.length} occurrences of tithi ${n} in "${monthPurnimanta}" ${year} ` +
-        `(adhika month?); using the earliest`,
+        `(all adhika?); using the earliest`,
     );
   }
-  matches.sort((a, b) => a.start.getTime() - b.start.getTime());
-  return matches[0];
+  matches.sort((a, b) => a.interval.start.getTime() - b.interval.start.getTime());
+  return matches[0].interval;
 }
 
 /** Normalise a month label for comparison (lower, strip Adhika/Nija/Shuddha). */
