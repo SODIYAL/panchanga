@@ -83,6 +83,22 @@ export interface PervasionCandidate {
    * `null` = checked, none overlaps; `undefined` = not checked.
    */
   bhadraOverlap?: { start: Date; end: Date } | null;
+  /**
+   * Whether this day's kāla window has ANY Bhadra-free portion, when
+   * `avoidKarana:"vishti"`. `false` = Bhadra covers the WHOLE window (the
+   * observance cannot be performed Bhadra-free on this day → disqualified);
+   * `true` = at least part of the window is Bhadra-free; `undefined` = not
+   * checked (rule has no Bhadra clause).
+   */
+  bhadraFreeWindow?: boolean;
+  /**
+   * Whether the festival tithi is live at this civil day's SUNRISE (udaya
+   * tithi). Used by the Bhadra branch to pick the Bhadra-free observance day
+   * when the tithi has already left that day's (evening) window — Drik observes
+   * such Bhadra-excluded Pūrṇimā festivals on the udaya-Pūrṇimā day whose
+   * kāla window is Bhadra-free. `undefined` when not supplied.
+   */
+  tithiAtSunrise?: boolean;
 }
 
 export type Precedence = "max-window-fraction" | "udaya" | "first" | "second";
@@ -138,6 +154,10 @@ function presentAtStart(c: PervasionCandidate): boolean {
  *
  * Pipeline:
  *   1. `nakshatra:"required"` → drop candidates with `nakshatraOk === false`.
+ *   1b.`avoidKarana:"vishti"` → DISQUALIFY any candidate whose kāla window is
+ *      wholly covered by Bhadra (Viṣṭi) — i.e. `bhadraFreeWindow === false`.
+ *      The observance must be performed in a Bhadra-FREE window, so a fully
+ *      Bhadra-contaminated day cannot host it. (Holikā Dahan, Rakṣā Bandhan.)
  *   2. Keep only candidates whose tithi covers a positive fraction of the
  *      window (i.e. the tithi actually pervades the window at all). A day with
  *      zero coverage cannot win — that is what triggers `fallback`.
@@ -149,7 +169,14 @@ function presentAtStart(c: PervasionCandidate): boolean {
  *   4. `nakshatra:"preferred"` → on an (near-)exact fraction tie, prefer the
  *      nakshatra-matching day; never overrides a clear winner.
  *   5. Record the chosen day's Bhadra overlap (avoidKarana:"vishti").
- *   6. If no survivor, set `fallbackApplied` and explain.
+ *   6. If no survivor pervades but `avoidKarana:"vishti"` left exactly the
+ *      Bhadra-free candidate(s) standing, choose the Bhadra-free day on which
+ *      the festival tithi is the UDAYA tithi (live at sunrise). This is the
+ *      Drik resolution for Bhadra-excluded Pūrṇimā festivals: when the natural
+ *      pradoṣa/aparāhna-vyāpinī day is Bhadra-contaminated, the observance
+ *      shifts to the (next) udaya-Pūrṇimā day whose window is Bhadra-free, even
+ *      though the tithi has by then left that evening window.
+ *   7. Otherwise, if no survivor, set `fallbackApplied` and explain.
  *
  * PURE: depends only on its arguments.
  */
@@ -172,6 +199,24 @@ export function selectDayByPervasion(
       );
     }
     pool = filtered;
+  }
+
+  // 1b. Bhadra (Viṣṭi) exclusion. A candidate whose ENTIRE kāla window is
+  //     covered by Bhadra cannot host a Bhadra-free observance → disqualify it.
+  //     Candidates with at least a Bhadra-free slice (or no Bhadra at all)
+  //     survive. We keep the Bhadra-free survivors in `pool` so the normal
+  //     precedence runs only over admissible days.
+  let bhadraDisqualified: PervasionCandidate[] = [];
+  if (opts.avoidKarana === "vishti") {
+    const free = pool.filter((c) => c.bhadraFreeWindow !== false);
+    bhadraDisqualified = pool.filter((c) => c.bhadraFreeWindow === false);
+    if (bhadraDisqualified.length > 0) {
+      diagnostics.push(
+        `avoidKarana(vishti): disqualified ${bhadraDisqualified.length} candidate day(s) whose ` +
+          `kāla window is wholly covered by Bhadra (Viṣṭi); the observance must be Bhadra-free`,
+      );
+    }
+    pool = free;
   }
 
   // 2. Keep candidates that actually pervade the window (coverage > 0).
@@ -199,6 +244,31 @@ export function selectDayByPervasion(
         diagnostics,
       };
     }
+    // Bhadra-exclusion shift: if the only reason nothing pervades is that the
+    // pervading day(s) were Bhadra-disqualified, observe on the Bhadra-free
+    // udaya-tithi day. This is the Drik resolution for Holikā / Rakṣā when the
+    // natural pradoṣa/aparāhna-vyāpinī day is Bhadra-contaminated: the festival
+    // shifts to the (next) day on which the tithi is live at sunrise and whose
+    // kāla window is Bhadra-free — even though the tithi has by then left that
+    // evening window (frac = 0 there).
+    if (opts.avoidKarana === "vishti" && bhadraDisqualified.length > 0 && pool.length > 0) {
+      // Prefer a Bhadra-free candidate that is the udaya-tithi day; else the
+      // earliest Bhadra-free candidate (day-sorted).
+      const udaya = pool.find((c) => c.tithiAtSunrise === true);
+      const shifted = udaya ?? pool[0];
+      diagnostics.push(
+        `avoidKarana(vishti): natural window-pervading day was Bhadra-disqualified; ` +
+          `shifted to the Bhadra-free ${udaya ? "udaya-tithi" : "earliest surviving"} day`,
+      );
+      return {
+        chosen: shifted,
+        coverageFraction: windowFraction(shifted.tithiInterval, shifted.window),
+        fallbackApplied: null,
+        bhadraOverlap: null, // Bhadra-free by construction of the surviving pool
+        diagnostics,
+      };
+    }
+
     // Genuine non-pervasion: tithi did not overlap the window on any surviving day.
     diagnostics.push("tithi did not pervade the window on any candidate day");
     return {
@@ -549,16 +619,33 @@ function resolveTithiPervades(
       const idx = nakshatraAt(win.start);
       nakshatraOk = NAKSHATRA_NAMES[idx] === obs.nakshatra.name;
     }
-    // Bhadra overlap with the window, if requested.
+    // Bhadra overlap with the window, if requested. We record BOTH the first
+    // overlapping interval (for diagnostics) and whether ANY part of the window
+    // is Bhadra-free (so the selector can disqualify a wholly-contaminated day).
     let bhadra: { start: Date; end: Date } | null | undefined;
+    let bhadraFreeWindow: boolean | undefined;
+    let tithiAtSunrise: boolean | undefined;
     if (obs.avoidKarana === "vishti") {
       bhadra = null;
+      const winLen = win.end.getTime() - win.start.getTime();
+      let coveredMs = 0;
       const intervals = bhadraIntervals(win.start);
       for (const bi of intervals) {
-        if (overlapMs(bi, { start: win.start, end: win.end }) > 0) {
-          bhadra = { start: bi.start, end: bi.end };
-          break;
+        const ov = overlapMs(bi, { start: win.start, end: win.end });
+        if (ov > 0) {
+          if (!bhadra) bhadra = { start: bi.start, end: bi.end };
+          coveredMs += ov;
         }
+      }
+      // Bhadra-free iff the cumulative covered span is shorter than the window
+      // (allow a 1-second slack for boundary/rounding noise).
+      bhadraFreeWindow = coveredMs < winLen - 1000;
+      // Udaya fact: is the festival tithi live at this day's sunrise? Used to
+      // pick the Bhadra-free observance day when the tithi has left the window.
+      const sr = riseSet("rise", dayMidnight, loc);
+      if (sr) {
+        tithiAtSunrise =
+          interval.start.getTime() <= sr.getTime() && interval.end.getTime() > sr.getTime();
       }
     }
     candidates.push({
@@ -567,6 +654,8 @@ function resolveTithiPervades(
       window: { start: win.start, end: win.end },
       nakshatraOk,
       bhadraOverlap: bhadra,
+      bhadraFreeWindow,
+      tithiAtSunrise,
     });
   }
 

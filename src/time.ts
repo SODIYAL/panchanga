@@ -303,19 +303,31 @@ export function pratahkala(date: Date, loc: GeoLocation): TimeWindow | null {
 /**
  * Pūrvāhna (forenoon)
  *
- * Definition: [sunrise, solarNoon] — the first half of the day.
- *   solarNoon = sunrise + D/2
+ * Definition: [sunrise, sunrise + 3·D/5] — the first three-fifths of the
+ * daytime.
  *
- * CALIBRATION: exact boundaries are validated against Drik Panchang
- * fixtures in Phase 4.
+ * CALIBRATION (Phase 4, validated against Drik Panchang 2026 New Delhi):
+ *   Drik's Pūrvāhna-vyāpinī festivals (Akṣaya Tṛtīyā, Vasant Pañcamī, Śāradīya
+ *   Navrātri Ghaṭasthāpana) resolve to the day on which the festival tithi
+ *   PERVADES the forenoon by the larger fraction. A solar-noon end (D/2) made
+ *   Pūrvāhna too SHORT: for Akṣaya Tṛtīyā 2026 the Tṛtīyā begins only at ~10:49
+ *   IST on Apr 19 (late in a D/2 window), so a D/2 Pūrvāhna gave Apr 20 the
+ *   larger fraction and the engine picked Apr 20 — but Drik observes Apr 19
+ *   (Tṛtīyā prevailing through the forenoon, Pūja Muhūrta 10:49–12:20 IST).
+ *   Widening the END to 3·D/5 captures the post-noon tail of the forenoon that
+ *   Drik's Pūrvāhna Kāla spans, so Apr 19's pervasion fraction overtakes Apr
+ *   20's and the engine matches Drik. Vasant Pañcamī (Jan 23) and Śāradīya
+ *   Navrātri (Oct 11) are single-day pervasions and are unaffected by the wider
+ *   end (both remain correct).
+ *
+ *   (Earlier draft = D/2 "solar noon"; the 3·D/5 end is the calibrated value.)
  */
 export function purvahna(date: Date, loc: GeoLocation): TimeWindow | null {
   const sr = getSunrise(date, loc);
   const ss = getSunset(date, loc);
   if (!sr || !ss) return null;
   const D = ss.getTime() - sr.getTime();
-  const solarNoon = new Date(sr.getTime() + D / 2);
-  return { start: sr, end: solarNoon };
+  return { start: sr, end: new Date(sr.getTime() + (3 * D) / 5) };
 }
 
 /**

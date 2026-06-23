@@ -142,6 +142,11 @@ export const CORE_RULES: FestivalRule[] = [
   // ─────────────────────────────────────────────────────────────────────────
   // 7. Hanuman Jayanti — Chaitra Shukla Pūrṇimā, sunrise
   //    Spec: Purnima at sunrise (purnima-vyāpti).
+  //    PRECEDENCE: udaya. A sunrise-anchored vyāpti festival is observed on the
+  //    day whose tithi is PRESENT AT SUNRISE (udaya-tithi), not the day with the
+  //    larger window-fraction. In 2026 Pūrṇimā spans both Apr 1 and Apr 2
+  //    sunrises with a *larger* fraction on Apr 1, yet Drik picks Apr 2 because
+  //    Pūrṇimā prevails at Apr 2 sunrise — exactly the udaya rule.
   // ─────────────────────────────────────────────────────────────────────────
   {
     id: "hanuman-jayanti",
@@ -153,7 +158,7 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: "purnima",
       window: "sunrise",
-      precedence: "max-window-fraction",
+      precedence: "udaya",
     },
   },
 
@@ -311,7 +316,19 @@ export const CORE_RULES: FestivalRule[] = [
 
   // ─────────────────────────────────────────────────────────────────────────
   // 16. Maha Navami — Ashwina Shukla 9, sunrise
-  //     Spec: Navami-vyāpti.
+  //     Spec: Navami-vyāpti → PRECEDENCE: udaya (present-at-sunrise), matching
+  //     the sister sunrise rules (Durga Ashtami, Hanuman Jayanti).
+  //     KNOWN EXPECTED-DIFF (2026): Drik publishes Maha Navami on Oct 19, the
+  //     SAME civil day as Maha Ashtami, with Sandhi Pūjā 10:27–11:15 IST. In
+  //     2026 Navami runs Oct 19 10:52 → Oct 20 12:51 IST, so it prevails at the
+  //     Oct 20 sunrise, NOT Oct 19's (Oct 19 sunrise carries Ashtami). Pure
+  //     udaya-tithi therefore yields Oct 20. Drik's Oct 19 comes from the
+  //     Durga-Pūjā Sandhi / Navami-conjoined-with-Ashtami convention (Navami
+  //     observed on the Ashtami-udaya day when the Sandhi junction falls that
+  //     morning) — a Durga-Pūjā-specific rule NOT expressible in the generic
+  //     tithi-pervasion grammar. Left as a documented +1 expected-diff rather
+  //     than hardcoded or hacked. (Vijayadashami/aparāhna on Oct 20 still
+  //     matches Drik.)
   // ─────────────────────────────────────────────────────────────────────────
   {
     id: "maha-navami",
@@ -323,7 +340,7 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: 9,
       window: "sunrise",
-      precedence: "max-window-fraction",
+      precedence: "udaya",
     },
   },
 
