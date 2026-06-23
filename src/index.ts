@@ -52,3 +52,25 @@ export {
   type MonthSystem,
   type LunarMonth,
 } from "./elements.js";
+
+// ── Observance-rule grammar (the keystone) ──────────────────────────────────
+export type {
+  Kala,
+  TithiRef,
+  Paksha,
+  Observance,
+  FestivalRule,
+  FestivalResult,
+} from "./types.js";
+
+// ── Observance-rule evaluator ───────────────────────────────────────────────
+export {
+  selectDayByPervasion,
+  computeFestival,
+  computeFestivals,
+  type PervasionCandidate,
+  type Precedence,
+  type SelectOptions,
+  type SelectResult,
+  type ComputeOptions,
+} from "./festivals.js";
