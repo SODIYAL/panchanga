@@ -32,6 +32,7 @@ import {
   nishita,
   brahmaMuhurta,
   pratahkala,
+  sankrantiPunyaKala,
   type GeoLocation,
 } from "../src/time.js";
 
@@ -372,5 +373,142 @@ describe("kāla windows — structural sanity for New Delhi 2026-06-23", () => {
       expect(w).not.toBeNull();
       expect(w!.start.getTime()).toBeLessThan(w!.end.getTime());
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. sankrantiPunyaKala — both branches
+// ---------------------------------------------------------------------------
+//
+// Location: New Delhi (latitude 28.6139, longitude 77.2090, timeZone "Asia/Kolkata")
+//
+// Astronomical ground truth for 2026-01-14 (computed via astronomy-engine,
+// same library used by the implementation):
+//   Delhi sunrise  Jan 14: 2026-01-14T01:45:03Z  (= 07:15 IST)
+//   Delhi sunset   Jan 14: 2026-01-14T12:15:23Z  (= 17:45 IST)
+//   Delhi sunrise  Jan 15: 2026-01-15T01:44:58Z  (= 07:14 IST)
+//   Delhi sunset   Jan 15: 2026-01-15T12:16:12Z  (= 17:46 IST)
+//
+// Branch 1 — Sankranti BEFORE sunset:
+//   Makar Sankranti 2026 falls at ~09:43 UTC (= 15:13 IST) on Jan 14.
+//   That is BEFORE Delhi sunset at ~12:15 UTC, so the rule says:
+//     puṇya-kāla = [moment, sunset of Jan 14]
+//
+// Branch 2 — Sankranti AFTER sunset:
+//   A synthetic moment at 14:00 UTC (= 19:30 IST) on Jan 14 is AFTER sunset
+//   (12:15 UTC), so the "after sunset → next sunrise" rule says:
+//     puṇya-kāla = [sunrise of Jan 15, sunset of Jan 15]
+//
+// The tests assert concrete UTC timestamps (with 2-min tolerance for
+// rise/set) and cross-check structural properties that would FAIL if the
+// branch condition were accidentally inverted.
+
+describe("sankrantiPunyaKala", () => {
+  /** New Delhi per the task spec; elevation 0 keeps the values matching
+   *  the ground-truth numbers computed above. */
+  const DELHI_SANKRANTI: GeoLocation = {
+    latitude: 28.6139,
+    longitude: 77.2090,
+    elevationMeters: 0,
+    timeZone: "Asia/Kolkata",
+  };
+
+  // Ground-truth values (from astronomy-engine, same library as impl).
+  // Tolerances: 2 minutes for rise/set comparisons.
+  const EXPECTED_SUNSET_JAN14 = new Date("2026-01-14T12:15:23Z");
+  const EXPECTED_SUNRISE_JAN15 = new Date("2026-01-15T01:44:58Z");
+  const EXPECTED_SUNSET_JAN15 = new Date("2026-01-15T12:16:12Z");
+
+  // ---------------------------------------------------------------------------
+  // Branch 1: moment BEFORE that day's sunset
+  // ---------------------------------------------------------------------------
+
+  describe("Branch 1 — moment before sunset (Makar Sankranti 2026)", () => {
+    // Makar Sankranti 2026: Sun enters Capricorn at ~15:13 IST = 09:43 UTC.
+    // Delhi sunset that day is ~17:45 IST = 12:15 UTC.
+    // 09:43 < 12:15  → moment is clearly before sunset.
+    const MAKAR_SANKRANTI_2026 = new Date("2026-01-14T09:43:00Z"); // 15:13 IST
+
+    it("returns a non-null TimeWindow", () => {
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      expect(win).not.toBeNull();
+    });
+
+    it("start equals the sankranti moment exactly", () => {
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      expect(win!.start.getTime()).toBe(MAKAR_SANKRANTI_2026.getTime());
+    });
+
+    it("end is that day's sunset (within 2 minutes)", () => {
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      expect(absDiffMs(win!.end, EXPECTED_SUNSET_JAN14)).toBeLessThan(TWO_MIN_MS);
+    });
+
+    it("start < end (valid window)", () => {
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      expect(win!.start.getTime()).toBeLessThan(win!.end.getTime());
+    });
+
+    it("both start and end fall on 2026-01-14 in IST", () => {
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      // Start: 09:43Z = 15:13 IST on Jan 14 ✓
+      // End:  ~12:15Z = 17:45 IST on Jan 14 ✓
+      expect(win!.start.toISOString().startsWith("2026-01-14")).toBe(true);
+      expect(win!.end.toISOString().startsWith("2026-01-14")).toBe(true);
+    });
+
+    it("end is before the NEXT day's sunrise (i.e. within the daytime window, not shifted to next day)", () => {
+      // This would FAIL if the branch condition were inverted (inverted branch
+      // would set start = Jan 15 sunrise, end = Jan 15 sunset).
+      const win = sankrantiPunyaKala(MAKAR_SANKRANTI_2026, DELHI_SANKRANTI);
+      expect(win!.end.getTime()).toBeLessThan(EXPECTED_SUNRISE_JAN15.getTime());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Branch 2: moment AFTER that day's sunset
+  // ---------------------------------------------------------------------------
+
+  describe("Branch 2 — moment after sunset (synthetic late-evening moment)", () => {
+    // 14:00 UTC = 19:30 IST on 2026-01-14, which is AFTER Delhi sunset at
+    // ~17:45 IST (12:15 UTC). This exercises the "after sunset → next sunrise"
+    // shift rule.
+    const AFTER_SUNSET_MOMENT = new Date("2026-01-14T14:00:00Z"); // 19:30 IST
+
+    it("returns a non-null TimeWindow", () => {
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      expect(win).not.toBeNull();
+    });
+
+    it("start is the NEXT day's sunrise, not the sankranti moment", () => {
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      // start must be close to Jan 15 sunrise (01:44 UTC), NOT 14:00 UTC
+      expect(absDiffMs(win!.start, EXPECTED_SUNRISE_JAN15)).toBeLessThan(TWO_MIN_MS);
+    });
+
+    it("end is the NEXT day's sunset (within 2 minutes)", () => {
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      expect(absDiffMs(win!.end, EXPECTED_SUNSET_JAN15)).toBeLessThan(TWO_MIN_MS);
+    });
+
+    it("start < end (valid window)", () => {
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      expect(win!.start.getTime()).toBeLessThan(win!.end.getTime());
+    });
+
+    it("start is NOT the sankranti moment (the shift to next sunrise happened)", () => {
+      // This is the key distinguishing assertion: if the branch were inverted,
+      // start would equal AFTER_SUNSET_MOMENT (14:00 UTC), but the correct
+      // result is Jan 15 sunrise (~01:44 UTC next day).
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      expect(win!.start.getTime()).not.toBe(AFTER_SUNSET_MOMENT.getTime());
+      // And specifically it must be on Jan 15 (UTC), not Jan 14
+      expect(win!.start.toISOString().startsWith("2026-01-15")).toBe(true);
+    });
+
+    it("end falls on 2026-01-15 in UTC (next-day sunset)", () => {
+      const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
+      expect(win!.end.toISOString().startsWith("2026-01-15")).toBe(true);
+    });
   });
 });
