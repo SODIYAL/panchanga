@@ -74,3 +74,12 @@ export {
   type SelectResult,
   type ComputeOptions,
 } from "./festivals.js";
+
+// ── Per-festival rule data (§4 core + §4b extended generators) ──────────────
+export {
+  CORE_RULES,
+  ekadashiRules,
+  sankashtiRules,
+  CHHATH_RULE,
+  allRules,
+} from "./rules.js";
