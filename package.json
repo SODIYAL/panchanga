@@ -1,6 +1,6 @@
 {
   "name": "panchanga",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Drik Panchanga (Smārta, pūrṇimānta) engine for HSNA — computes tithi, vara, nakshatra, yoga, karana from astronomical first principles.",
   "license": "MIT",
   "type": "module",
