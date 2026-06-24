@@ -3,8 +3,9 @@
 Drik Panchanga (Smārta, pūrṇimānta) engine for the [HSNA](https://hsna.ca) website.
 
 A dependency-light TypeScript library that computes the Hindu lunisolar calendar —
-**tithi, nakshatra, karaṇa, the lunar month, and sidereal / ayanāṁśa values** — and
-resolves **Hindu festival dates**, all from astronomical first principles via
+the **five aṅgas** (vāra, tithi, nakṣatra, yoga, karaṇa), the lunar month, and
+sidereal / ayanāṁśa values — and resolves **Hindu festival dates**, all from
+astronomical first principles via
 [astronomy-engine](https://github.com/cosinekitty/astronomy). No lookup tables, no
 remote API.
 
@@ -13,12 +14,16 @@ remote API.
 
 ## Features
 
-- **Calendar elements** — tithi, nakshatra, karaṇa (including Viṣṭi / Bhadra), and the
-  pūrṇimānta / amānta lunar month with adhika (leap) and kṣaya (lost) month detection.
+- **The five aṅgas** — vāra (sunrise-to-sunrise weekday), tithi, nakṣatra, yoga, and
+  karaṇa (including Viṣṭi / Bhadra), plus the pūrṇimānta / amānta lunar month with
+  adhika (leap) and kṣaya (lost) month detection.
+- **Daily pañcāṅga** — `dailyPanchanga(date, loc)` bundles all five aṅgas (each resolved
+  at sunrise, with its end-time) and the day's sun/moon instants into one record.
 - **Astronomy primitives** — Lahiri ayanāṁśa (IAU 1976 precession), sidereal longitudes
   and Sun rāśi, new moons, solar ingress (saṅkrānti).
-- **Time & kāla windows** — timezone/DST-safe sunrise, sunset and moonrise, plus the
-  muhūrta windows (pūrvāhna, madhyāhna, aparāhna, pradoṣa, niśīta, brahma-muhūrta, …).
+- **Time & kāla windows** — timezone/DST-safe sunrise, sunset and moonrise, the muhūrta
+  windows (pūrvāhna, madhyāhna, aparāhna, pradoṣa, niśīta, brahma-muhūrta, …), and the
+  weekday day-part periods **Rāhu Kāla, Yamaganda, Gulika, and Abhijit**.
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
   pervasion-day selector that resolves each festival to a civil date and **never silently
   drops**: every miss is explained in `diagnostics`.
@@ -37,6 +42,34 @@ npm install panchanga
 ```
 
 ## Quick start
+
+### The full pañcāṅga for a day
+
+```ts
+import { dailyPanchanga } from "panchanga";
+import type { GeoLocation } from "panchanga";
+
+const newDelhi: GeoLocation = {
+  latitude: 28.6139,
+  longitude: 77.209,
+  timeZone: "Asia/Kolkata", // IANA tz id
+};
+
+const p = dailyPanchanga(new Date("2026-01-23"), newDelhi);
+
+console.log(p.date, p.vara.name);            // 2026-01-23 Shukravara
+console.log(p.tithi.paksha, p.tithi.name);   // shukla Panchami
+console.log(p.nakshatra.name);               // Purva Bhadrapada
+console.log(p.yoga.name);                    // Parigha
+console.log(p.karana.name);                  // Bava
+console.log(p.month.purnimanta);             // Magha
+console.log(p.muhurta.rahuKala);             // { start: "...Z", end: "...Z" } — Rāhu Kāla
+```
+
+Each running aṅga (tithi, nakṣatra, yoga, karaṇa) is the one **prevailing at sunrise**
+and carries an `endsAt` (ISO-UTC) marking when it gives way to the next; the record also
+includes `sunrise`, `sunset`, `moonrise`, and the day's `muhurta` windows (Rāhu Kāla,
+Yamaganda, Gulika, Abhijit).
 
 ### Compute festival dates for a year and location
 
@@ -104,17 +137,23 @@ The public surface (see [`src/index.ts`](src/index.ts)) is layered:
 **1. Ayanāṁśa & sidereal** — `ayanamsha`, `siderealLongitude`, `siderealSunRashi`,
 `normalize360`, `LAHIRI_ANCHOR_J2000_DEG`.
 
-**2. Time & kāla windows** — `riseSet`, `moonrise`, `sunset`, `sunriseWindow` /
-`pratahkala`, `purvahna`, `madhyahna`, `aparahna`, `pradosha`, `nishita`,
-`brahmaMuhurta`, `sankrantiPunyaKala`, plus timezone helpers (`localDayString`,
-`startOfLocalDayUTC`, `nextLocalDayStartUTC`). Types: `GeoLocation`, `TimeWindow`.
+**2. Time, vāra & kāla windows** — `riseSet`, `moonrise`, `sunset`, `varaAt`,
+`sunriseWindow` / `pratahkala`, `purvahna`, `madhyahna`, `aparahna`, `pradosha`,
+`nishita`, `brahmaMuhurta`, `rahuKala`, `yamaganda`, `gulikaKala`, `abhijitMuhurta`,
+`sankrantiPunyaKala`, plus timezone helpers (`localDayString`, `startOfLocalDayUTC`,
+`nextLocalDayStartUTC`) and `VARA_NAMES`. Types: `GeoLocation`, `TimeWindow`, `Vara`.
 
 **3. Calendar elements** — `tithiAt`, `tithiBoundaries`, `nakshatraAt`,
-`nakshatraBoundaries`, `karanaAt`, `karanaIndexAt`, `karanaName`, `bhadraIntervals`,
-`elongation`, `newMoons`, `solarIngress`, `lunarMonth`. Name tables: `TITHI_NAMES`,
-`NAKSHATRA_NAMES`, `MOVABLE_KARANAS`, `LUNAR_MONTH_NAMES`.
+`nakshatraBoundaries`, `yogaAt`, `yogaBoundaries`, `karanaAt`, `karanaIndexAt`,
+`karanaName`, `karanaBoundaries`, `bhadraIntervals`, `elongation`, `newMoons`,
+`solarIngress`, `lunarMonth`. Name tables: `TITHI_NAMES`, `NAKSHATRA_NAMES`,
+`YOGA_NAMES`, `MOVABLE_KARANAS`, `LUNAR_MONTH_NAMES`.
 
-**4. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
+**4. Daily aggregator** — `dailyPanchanga(date, loc)` → `DailyPanchanga` (the five aṅgas
+at sunrise + sun/moon instants + month label + the day's Rāhu/Yama/Gulika/Abhijit
+muhūrtas).
+
+**5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data `CORE_RULES`, `ekadashiRules(year)`,
 `sankashtiRules(year)`, `CHHATH_RULE`, `allRules(year)`. Grammar types: `Observance`,
 `FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`.

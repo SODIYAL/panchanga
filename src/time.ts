@@ -234,6 +234,49 @@ export function sunset(date: Date, loc: GeoLocation): Date | null {
 }
 
 // ---------------------------------------------------------------------------
+// Vāra (weekday) — sunrise-to-sunrise reckoning
+// ---------------------------------------------------------------------------
+
+/** The 7 vāras (weekdays), index 0 = Sunday (Ravivāra) … 6 = Saturday. */
+export const VARA_NAMES = [
+  "Ravivara", "Somavara", "Mangalavara", "Budhavara",
+  "Guruvara", "Shukravara", "Shanivara",
+] as const;
+
+export interface Vara {
+  /** Weekday index 0..6 (0 = Sunday / Ravivāra). */
+  index: number;
+  /** Vāra name (Ravivāra … Śanivāra). */
+  name: string;
+}
+
+/**
+ * The vāra (weekday) governing the instant `date` at `loc`.
+ *
+ * The pañcāṅga day runs SUNRISE-to-SUNRISE, not civil midnight: the hours
+ * between local midnight and sunrise still belong to the PREVIOUS weekday. So
+ * we take the local calendar day of `date`, and if `date` falls before that
+ * day's sunrise, roll the owning date back one calendar day, then read the
+ * weekday of the owning date (a calendar date's weekday is timezone-invariant,
+ * so we anchor it at noon UTC).
+ *
+ * Returns `null` only when sunrise cannot be found (polar day/night).
+ */
+export function varaAt(date: Date, loc: GeoLocation): Vara | null {
+  const dayStart = startOfLocalDayUTC(date, loc.timeZone);
+  const sr = riseSet("rise", dayStart, loc);
+  if (!sr) return null;
+  let owningDate = localDayString(date, loc.timeZone);
+  if (date.getTime() < sr.getTime()) {
+    const d = new Date(`${owningDate}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    owningDate = d.toISOString().slice(0, 10);
+  }
+  const index = new Date(`${owningDate}T12:00:00Z`).getUTCDay();
+  return { index, name: VARA_NAMES[index] };
+}
+
+// ---------------------------------------------------------------------------
 // 3. Kāla windows
 // ---------------------------------------------------------------------------
 //
@@ -446,6 +489,96 @@ export function brahmaMuhurta(date: Date, loc: GeoLocation): TimeWindow | null {
   return {
     start: new Date(sr.getTime() - 2 * dayMuhurta),
     end: new Date(sr.getTime() - dayMuhurta),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Auspicious / inauspicious day-part windows (Rāhu / Yama / Gulika / Abhijit)
+// ---------------------------------------------------------------------------
+//
+// The daytime [sunrise, sunset] is split into 8 equal parts. Rāhu Kāla,
+// Yamaganda and Gulika each occupy ONE part, selected by the vāra (weekday).
+// The tables are indexed by weekday 0 = Sunday … 6 = Saturday and give the
+// 1-based part number (part 1 = the first eighth after sunrise). These are the
+// standard Smārta / Drik Panchang assignments.
+
+/** Rāhu Kāla part (1..8) by weekday (0 = Sunday). */
+const RAHU_SEGMENT = [8, 2, 7, 5, 6, 4, 3] as const;
+/** Yamaganda part (1..8) by weekday (0 = Sunday). */
+const YAMA_SEGMENT = [5, 4, 3, 2, 1, 7, 6] as const;
+/** Gulika Kāla part (1..8) by weekday (0 = Sunday). */
+const GULIKA_SEGMENT = [7, 6, 5, 4, 3, 2, 1] as const;
+
+/** Weekday (0 = Sunday) of the civil day of `date` in `loc`'s timezone. */
+function civilWeekday(date: Date, loc: GeoLocation): number {
+  return new Date(`${localDayString(date, loc.timeZone)}T12:00:00Z`).getUTCDay();
+}
+
+/** The `seg`-th eighth (1..8) of the daytime starting at sunrise `sr`. */
+function dayEighth(sr: Date, D: number, seg: number): TimeWindow {
+  const eighth = D / 8;
+  return {
+    start: new Date(sr.getTime() + (seg - 1) * eighth),
+    end: new Date(sr.getTime() + seg * eighth),
+  };
+}
+
+/** Common sunrise/sunset/day-length fetch; null at polar latitudes. */
+function dayArc(date: Date, loc: GeoLocation): { sr: Date; D: number } | null {
+  const sr = getSunrise(date, loc);
+  const ss = getSunset(date, loc);
+  if (!sr || !ss) return null;
+  const D = ss.getTime() - sr.getTime();
+  if (D <= 0) return null;
+  return { sr, D };
+}
+
+/**
+ * Rāhu Kāla — the inauspicious eighth-of-day governed by Rāhu, by weekday.
+ * Returns null if the day has no sunrise/sunset (polar).
+ */
+export function rahuKala(date: Date, loc: GeoLocation): TimeWindow | null {
+  const arc = dayArc(date, loc);
+  if (!arc) return null;
+  return dayEighth(arc.sr, arc.D, RAHU_SEGMENT[civilWeekday(date, loc)]);
+}
+
+/**
+ * Yamaganda (Yama Kaṇṭaka) — the inauspicious eighth-of-day governed by Yama.
+ */
+export function yamaganda(date: Date, loc: GeoLocation): TimeWindow | null {
+  const arc = dayArc(date, loc);
+  if (!arc) return null;
+  return dayEighth(arc.sr, arc.D, YAMA_SEGMENT[civilWeekday(date, loc)]);
+}
+
+/**
+ * Gulika Kāla (Gulikai / Mānda) — the eighth-of-day governed by Gulika. Unlike
+ * Rāhu/Yama it is treated as AUSPICIOUS for some saṁskāras, but inauspicious
+ * for travel/new ventures; we return the window and leave the verdict to the
+ * caller.
+ */
+export function gulikaKala(date: Date, loc: GeoLocation): TimeWindow | null {
+  const arc = dayArc(date, loc);
+  if (!arc) return null;
+  return dayEighth(arc.sr, arc.D, GULIKA_SEGMENT[civilWeekday(date, loc)]);
+}
+
+/**
+ * Abhijit Muhūrta — the auspicious 8th of the 15 day-muhūrtas, centred on solar
+ * noon.
+ *   dayMuhurta = D / 15;  [sunrise + 7·dayMuhurta, sunrise + 8·dayMuhurta]
+ *
+ * NOTE: by tradition Abhijit is considered void/inauspicious on Wednesday; this
+ * function returns the window regardless (the verdict is left to the caller).
+ */
+export function abhijitMuhurta(date: Date, loc: GeoLocation): TimeWindow | null {
+  const arc = dayArc(date, loc);
+  if (!arc) return null;
+  const dayMuhurta = arc.D / 15;
+  return {
+    start: new Date(arc.sr.getTime() + 7 * dayMuhurta),
+    end: new Date(arc.sr.getTime() + 8 * dayMuhurta),
   };
 }
 
