@@ -38,6 +38,10 @@ function candidate(
     bhadraOverlap?: { start: string; end: string } | null;
     /** offset of tithi-start before the window start, in ms (default: at start) */
     tithiStartsBeforeWindowMs?: number;
+    /** whether the window has any Bhadra-free slice (avoidKarana:"vishti") */
+    bhadraFreeWindow?: boolean;
+    /** whether the festival tithi is live at this day's sunrise (udaya) */
+    tithiAtSunrise?: boolean;
   } = {},
 ): PervasionCandidate {
   const day = new Date(`${dayISO}T00:00:00Z`);
@@ -73,6 +77,8 @@ function candidate(
     window: { start: wStart, end: wEnd },
     nakshatraOk: opts.nakshatraOk,
     bhadraOverlap,
+    bhadraFreeWindow: opts.bhadraFreeWindow,
+    tithiAtSunrise: opts.tithiAtSunrise,
   };
 }
 
@@ -238,6 +244,63 @@ describe("selectDayByPervasion — avoidKarana: vishti records Bhadra overlap", 
     });
     expect(r.chosen?.day.toISOString()).toBe(day1.day.toISOString());
     expect(r.bhadraOverlap).toBeNull();
+  });
+});
+
+describe("selectDayByPervasion — avoidKarana: vishti Bhadra-exclusion shift", () => {
+  it("disqualifies a wholly-Bhadra day that pervades and shifts to the Bhadra-free udaya day", () => {
+    // day1 pervades the window but is WHOLLY Bhadra (disqualified). day2 is
+    // Bhadra-free and the udaya-tithi day, but the tithi has left its window
+    // (frac=0). The observance must shift to day2.
+    const day1 = candidate("2026-03-02", 0.5, { bhadraFreeWindow: false });
+    const day2 = candidate("2026-03-03", 0, {
+      bhadraFreeWindow: true,
+      tithiAtSunrise: true,
+    });
+    const r = selectDayByPervasion([day1, day2], {
+      precedence: "udaya",
+      avoidKarana: "vishti",
+    });
+    expect(r.chosen?.day.toISOString()).toBe(day2.day.toISOString());
+    expect(r.fallbackApplied).toBeNull();
+    expect(r.diagnostics.join(" ")).toMatch(/shifted to the Bhadra-free udaya-tithi day/);
+  });
+
+  it("does NOT shift on genuine non-pervasion (disqualified day never pervaded); applies the configured fallback", () => {
+    // Regression guard: the disqualified day's tithi does NOT pervade (frac=0),
+    // so nothing-pervades is a TRUE non-pervasion — the shift must not fire and
+    // the configured fallback must apply instead.
+    const day1 = candidate("2026-03-02", 0, { bhadraFreeWindow: false });
+    const day2 = candidate("2026-03-03", 0, {
+      bhadraFreeWindow: true,
+      tithiAtSunrise: true,
+    });
+    const r = selectDayByPervasion([day1, day2], {
+      precedence: "udaya",
+      avoidKarana: "vishti",
+      fallback: "next-day",
+    });
+    expect(r.chosen).toBeNull();
+    expect(r.fallbackApplied).toBe("next-day");
+  });
+
+  it("surfaces a PARTIAL Bhadra overlap on the shifted day rather than asserting it is clean", () => {
+    // day2 survives (not WHOLLY Bhadra) but still has a partial Bhadra overlap.
+    // The shift must report that overlap, not force bhadraOverlap to null.
+    const overlap = { start: "2026-03-03T06:00:00Z", end: "2026-03-03T07:00:00Z" };
+    const day1 = candidate("2026-03-02", 0.5, { bhadraFreeWindow: false });
+    const day2 = candidate("2026-03-03", 0, {
+      bhadraFreeWindow: true,
+      tithiAtSunrise: true,
+      bhadraOverlap: overlap,
+    });
+    const r = selectDayByPervasion([day1, day2], {
+      precedence: "udaya",
+      avoidKarana: "vishti",
+    });
+    expect(r.chosen?.day.toISOString()).toBe(day2.day.toISOString());
+    expect(r.bhadraOverlap).not.toBeNull();
+    expect(r.bhadraOverlap?.start.toISOString()).toBe(new Date(overlap.start).toISOString());
   });
 });
 

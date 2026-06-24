@@ -316,8 +316,11 @@ export const CORE_RULES: FestivalRule[] = [
 
   // ─────────────────────────────────────────────────────────────────────────
   // 16. Maha Navami — Ashwina Shukla 9, sunrise
-  //     Spec: Navami-vyāpti → PRECEDENCE: udaya (present-at-sunrise), matching
-  //     the sister sunrise rules (Durga Ashtami, Hanuman Jayanti).
+  //     Spec: Navami-vyāpti → PRECEDENCE: udaya (present-at-sunrise), the same
+  //     sunrise-anchored udaya rule used by Hanuman Jayanti. NOTE: Durga Ashtami
+  //     (the adjacent sunrise festival) intentionally stays on
+  //     max-window-fraction — it resolves correctly that way for 2026; do NOT
+  //     switch it to udaya.
   //     KNOWN EXPECTED-DIFF (2026): Drik publishes Maha Navami on Oct 19, the
   //     SAME civil day as Maha Ashtami, with Sandhi Pūjā 10:27–11:15 IST. In
   //     2026 Navami runs Oct 19 10:52 → Oct 20 12:51 IST, so it prevails at the
