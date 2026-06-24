@@ -59,6 +59,7 @@ import {
   pradosha,
   nishita,
   brahmaMuhurta,
+  arunodaya,
 } from "./time.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -383,9 +384,11 @@ function kalaWindow(kala: Kala, dayInstant: Date, loc: GeoLocation): TimeWindow 
       return nishita(dayInstant, loc);
     case "brahmaMuhurta":
       return brahmaMuhurta(dayInstant, loc);
+    case "arunodaya":
+      return arunodaya(dayInstant, loc);
     default:
-      // moonrise / sunset / arunodaya / sankrantiPunyaKala are not kāla windows
-      // resolvable here; tithi-pervades windows are only the eight above.
+      // moonrise / sunset / sankrantiPunyaKala are instants, not kāla windows
+      // resolvable here; the tithi-pervades windows are the nine above.
       return null;
   }
 }

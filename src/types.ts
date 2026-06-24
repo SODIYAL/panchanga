@@ -28,14 +28,14 @@ export type { GeoLocation } from "./time.js";
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * A named time anchor. The first eight are kāla *windows* (each resolves to a
- * `{start,end}` via the corresponding `time.ts` function); the last four are
- * instants/windows used by the non-`tithi-pervades` observances
- * (`moonrise`, `sunset`, `arunodaya`, `sankrantiPunyaKala`).
+ * A named time anchor. The first nine resolve to a kāla *window* (`{start,end}`)
+ * via the corresponding `time.ts` function and are usable as a `tithi-pervades`
+ * window; the last three (`moonrise`, `sunset`, `sankrantiPunyaKala`) are
+ * instants used by the non-`tithi-pervades` observances.
  *
  * Note: `time.ts` exposes `pratahkala` (alias of `sunriseWindow`) for the
- * `"sunrise"` kāla; `arunodaya` is reserved for a Phase-4 refinement and is
- * accepted by the grammar but not yet wired to a window function.
+ * `"sunrise"` kāla, and `arunodaya` is the pre-sunrise window (4 ghaṭikās
+ * before sunrise) for aruṇodaya-vyāpinī observances.
  */
 export type Kala =
   | "sunrise" | "purvahna" | "madhyahna" | "aparahna" | "pradosha"

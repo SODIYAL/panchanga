@@ -492,6 +492,29 @@ export function brahmaMuhurta(date: Date, loc: GeoLocation): TimeWindow | null {
   };
 }
 
+/**
+ * Aruṇodaya ("break of dawn") — the pre-sunrise window that aruṇodaya-vyāpinī
+ * observances key on (e.g. the start of an Ekādaśī / vrata fast, and snāna
+ * timing).
+ *
+ * CONVENTION: 4 ghaṭikās before sunrise. A ghaṭikā (nāḍikā) is 24 minutes, so
+ * this is a FIXED 96 minutes: [sunrise − 96 min, sunrise]. This matches the
+ * Drik Panchang aruṇodaya convention. (Some texts instead use 4/60 of the full
+ * ahorātra — sunrise-to-sunrise — which is night-length dependent; that variant
+ * is NOT used here.)
+ *
+ * Returns null if the day has no sunrise (polar).
+ */
+export function arunodaya(date: Date, loc: GeoLocation): TimeWindow | null {
+  const sr = getSunrise(date, loc);
+  if (!sr) return null;
+  const GHATIKA_MS = 24 * 60 * 1000;
+  return {
+    start: new Date(sr.getTime() - 4 * GHATIKA_MS),
+    end: sr,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Auspicious / inauspicious day-part windows (Rāhu / Yama / Gulika / Abhijit)
 // ---------------------------------------------------------------------------

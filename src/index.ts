@@ -26,6 +26,7 @@ export {
   pradosha,
   nishita,
   brahmaMuhurta,
+  arunodaya,
   rahuKala,
   yamaganda,
   gulikaKala,
