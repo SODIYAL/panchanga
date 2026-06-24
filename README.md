@@ -9,7 +9,7 @@ astronomical first principles via
 [astronomy-engine](https://github.com/cosinekitty/astronomy). No lookup tables, no
 remote API.
 
-> **Status:** pre-1.0 (`0.0.0`), under active development. The grammar and public API
+> **Status:** pre-1.0 (`0.1.0`), under active development. The grammar and public API
 > may still change.
 
 ## Features
