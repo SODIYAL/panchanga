@@ -31,9 +31,11 @@ import {
   yamaganda,
   gulikaKala,
   abhijitMuhurta,
+  arunodaya,
 } from "../src/time.js";
 import { dailyPanchanga } from "../src/panchanga.js";
-import type { GeoLocation } from "../src/types.js";
+import { computeFestival } from "../src/festivals.js";
+import type { GeoLocation, FestivalRule } from "../src/types.js";
 
 const NEW_DELHI: GeoLocation = {
   latitude: 28.6139,
@@ -229,5 +231,45 @@ describe("muhūrta — Rāhu / Yamaganda / Gulika / Abhijit (day-eighths)", () =
     expect(p.vara.name).toBe("Ravivara");
     const ss = new Date(p.sunset!).getTime();
     expect(near(rahuKala(sunday, NEW_DELHI)!.end.getTime(), ss)).toBe(true);
+  });
+});
+
+describe("arunodaya — pre-sunrise window (4 ghaṭikās = 96 min)", () => {
+  const anchor = new Date("2026-01-23T06:00:00Z");
+
+  it("ends at sunrise and spans exactly 96 minutes", () => {
+    const w = arunodaya(anchor, NEW_DELHI)!;
+    expect(w.end.getTime() - w.start.getTime()).toBe(96 * 60 * 1000);
+    // its end coincides with the day's sunrise
+    expect(w.end.toISOString()).toBe(dailyPanchanga(anchor, NEW_DELHI).sunrise);
+  });
+
+  it("returns null during polar night (no sunrise)", () => {
+    const longyearbyen: GeoLocation = {
+      latitude: 78.22,
+      longitude: 15.65,
+      timeZone: "Arctic/Longyearbyen",
+    };
+    expect(arunodaya(new Date("2026-12-21T11:00:00Z"), longyearbyen)).toBeNull();
+  });
+
+  it('is wired into the evaluator: a window:"arunodaya" rule resolves to a date', () => {
+    const rule: FestivalRule = {
+      id: "test-arunodaya",
+      displayName: "Test Aruṇodaya",
+      month: { purnimanta: "Kartika" },
+      category: "lunar-tithi",
+      observance: {
+        kind: "tithi-pervades",
+        paksha: "shukla",
+        tithi: 11,
+        window: "arunodaya",
+        precedence: "udaya",
+      },
+    };
+    const r = computeFestival(rule, 2026, NEW_DELHI);
+    expect(r.date).not.toBe(""); // before wiring, the null window left this empty
+    expect(r.instants.windowStart).toBeDefined();
+    expect(r.instants.windowEnd).toBeDefined();
   });
 });

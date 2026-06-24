@@ -139,9 +139,10 @@ The public surface (see [`src/index.ts`](src/index.ts)) is layered:
 
 **2. Time, vāra & kāla windows** — `riseSet`, `moonrise`, `sunset`, `varaAt`,
 `sunriseWindow` / `pratahkala`, `purvahna`, `madhyahna`, `aparahna`, `pradosha`,
-`nishita`, `brahmaMuhurta`, `rahuKala`, `yamaganda`, `gulikaKala`, `abhijitMuhurta`,
-`sankrantiPunyaKala`, plus timezone helpers (`localDayString`, `startOfLocalDayUTC`,
-`nextLocalDayStartUTC`) and `VARA_NAMES`. Types: `GeoLocation`, `TimeWindow`, `Vara`.
+`nishita`, `brahmaMuhurta`, `arunodaya`, `rahuKala`, `yamaganda`, `gulikaKala`,
+`abhijitMuhurta`, `sankrantiPunyaKala`, plus timezone helpers (`localDayString`,
+`startOfLocalDayUTC`, `nextLocalDayStartUTC`) and `VARA_NAMES`. Types: `GeoLocation`,
+`TimeWindow`, `Vara`.
 
 **3. Calendar elements** — `tithiAt`, `tithiBoundaries`, `nakshatraAt`,
 `nakshatraBoundaries`, `yogaAt`, `yogaBoundaries`, `karanaAt`, `karanaIndexAt`,
