@@ -14,8 +14,8 @@
  *                                      [Bava, Bālava, Kaulava, Taitila, Gara,
  *                                       Vaṇij, Viṣṭi]   (8 full cycles = 56)
  *     h = 57 → Śakuni, 58 → Catuṣpāda, 59 → Nāga   (fixed)
- *   Viṣṭi ≡ Bhadra. (The Bhadra Mukha/Pucchā subdivision is a Phase-4
- *   refinement and is NOT implemented here — see bhadraIntervals docs.)
+ *   Viṣṭi ≡ Bhadra. The Mukha/Pucchā subdivision + Vāsa is `bhadraSplit`;
+ *   `bhadraIntervals` returns the whole Viṣṭi span it operates on.
  *
  * • LUNAR-MONTH NAMING / ADHIKA / KṢAYA — Wikipedia "Hindu calendar" &
  *   "Adhika-masa" (https://en.wikipedia.org/wiki/Adhika-masa,
@@ -407,10 +407,9 @@ export interface KaranaInterval {
  * {start,end} (UTC) that overlaps the window. Adjacent to a date this yields
  * the Bhadra window(s) on/near that date.
  *
- * NOTE: the Bhadra Mukha / Pucchā subdivision (vyāpti over the day/night and
- * the "face/tail" split used for Holikā Dahan muhūrta) is a Phase-4
- * refinement and is intentionally NOT computed here — this returns the whole
- * Viṣṭi karaṇa span.
+ * NOTE: this returns the whole Viṣṭi karaṇa span. The Mukha/Pucchā "face/tail"
+ * subdivision and the Vāsa (loka) used for Holikā Dahan muhūrta are computed by
+ * `bhadraSplit`, which takes one of these intervals.
  */
 export function bhadraIntervals(around: FlexibleDateTime): KaranaInterval[] {
   const t = MakeTime(around);
@@ -456,6 +455,77 @@ export function bhadraIntervals(around: FlexibleDateTime): KaranaInterval[] {
     if (!uniq.has(key)) uniq.set(key, iv);
   }
   return [...uniq.values()].sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// 3c. Bhadra (Viṣṭi) Mukha / Pucchā split + Vāsa (loka)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// SOURCING — Muhūrta-Chintāmaṇi, the convention Drik Panchang displays:
+//
+//  • VĀSA (where Bhadra resides), by the Moon's rāśi during Bhadra:
+//      svarga (heaven)  — Meṣa, Vṛṣabha, Mithuna, Vṛścika
+//      pṛthvī (bhūmi)   — Karka, Siṃha, Kumbha, Mīna   ← the harmful one
+//      pātāla           — Kanyā, Tulā, Dhanu, Makara
+//    Bhadra is dreaded only on pṛthvī; in svarga/pātāla its ill effects fall in
+//    those lokas, not on earthly work.
+//
+//  • MUKHA / PUCCHĀ — for the reference 30-ghaṭī karaṇa, Mukha (face) is the
+//    first 5 ghaṭī and Pucchā (tail) the last 3 ghaṭī; both scale with the span,
+//    so Mukha = leading 1/6, Pucchā = trailing 1/10. Mukha is the most
+//    inauspicious portion; work begun in Pucchā succeeds (so Holikā Dahan, when
+//    its pradoṣa is Bhadra-bound, is performed during Pucchā).
+//
+//  SIMPLIFICATION: the full classical scheme threads the body-parts through
+//  tithi-dependent quarters of the karaṇa; this uses the dominant practical
+//  placement (Mukha leading, Pucchā trailing) that modern panchāṅgas display.
+
+/** Where Bhadra resides — its loka, from the Moon's rāśi during Bhadra. */
+export type BhadraVasa = "svarga" | "prithvi" | "patala";
+
+export interface BhadraDetails {
+  /** Loka: svarga (heaven), prithvi (earth/bhūmi, the harmful one), patala. */
+  vasa: BhadraVasa;
+  /** The Moon's sidereal rāśi (0 = Mesha … 11 = Mīna) at the start of Bhadra. */
+  moonRashi: number;
+  /** Bhadra Mukha — inauspicious leading 1/6 (5 ghaṭī of a 30-ghaṭī karaṇa). */
+  mukha: KaranaInterval;
+  /** Bhadra Pucchā — auspicious trailing 1/10 (3 ghaṭī of a 30-ghaṭī karaṇa). */
+  puccha: KaranaInterval;
+}
+
+/** Vāsa loka by rāśi index 0..11 (see the sourcing note above). */
+const BHADRA_VASA_BY_RASHI: readonly BhadraVasa[] = [
+  "svarga",  // 0  Mesha
+  "svarga",  // 1  Vrishabha
+  "svarga",  // 2  Mithuna
+  "prithvi", // 3  Karka
+  "prithvi", // 4  Simha
+  "patala",  // 5  Kanya
+  "patala",  // 6  Tula
+  "svarga",  // 7  Vrishchika
+  "patala",  // 8  Dhanu
+  "patala",  // 9  Makara
+  "prithvi", // 10 Kumbha
+  "prithvi", // 11 Meena
+];
+
+/**
+ * Split a Bhadra (Viṣṭi karaṇa) `interval` into its Mukha (face) and Pucchā
+ * (tail) sub-windows and resolve its Vāsa from the Moon's rāśi at Bhadra's
+ * start. See the sourcing note above. PURE w.r.t. its argument + ephemeris.
+ */
+export function bhadraSplit(interval: KaranaInterval): BhadraDetails {
+  const startMs = interval.start.getTime();
+  const endMs = interval.end.getTime();
+  const span = endMs - startMs;
+  const moonRashi = Math.floor(siderealLongitude(interval.start, Body.Moon) / 30) % 12;
+  return {
+    vasa: BHADRA_VASA_BY_RASHI[moonRashi],
+    moonRashi,
+    mukha: { start: new Date(startMs), end: new Date(startMs + span / 6) },
+    puccha: { start: new Date(endMs - span / 10), end: new Date(endMs) },
+  };
 }
 
 // ───────────────────────────────────────────────────────────────────────────

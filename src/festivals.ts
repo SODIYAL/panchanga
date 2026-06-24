@@ -37,6 +37,7 @@ import {
   tithiBoundaries,
   nakshatraAt,
   bhadraIntervals,
+  bhadraSplit,
   newMoons,
   solarIngress,
   lunarMonth,
@@ -344,7 +345,7 @@ export function selectDayByPervasion(
       diagnostics.push(
         `avoidKarana(vishti): Bhadra overlaps the window on the chosen day ` +
           `(${bhadraOverlap.start.toISOString()}–${bhadraOverlap.end.toISOString()}); ` +
-          `Mukha/Pucchā split deferred to Phase 4`,
+          `Mukha/Pucchā split and Vāsa recorded in instants (bhadra*)`,
       );
     } else {
       diagnostics.push("avoidKarana(vishti): no Bhadra overlaps the chosen day's window");
@@ -715,6 +716,13 @@ function resolveTithiPervades(
     if (sel.bhadraOverlap) {
       instants.bhadraStart = iso(sel.bhadraOverlap.start);
       instants.bhadraEnd = iso(sel.bhadraOverlap.end);
+      // Mukha (avoid) / Pucchā (auspicious) split + Vāsa of this Bhadra span.
+      const split = bhadraSplit(sel.bhadraOverlap);
+      instants.bhadraVasa = split.vasa;
+      instants.bhadraMukhaStart = iso(split.mukha.start);
+      instants.bhadraMukhaEnd = iso(split.mukha.end);
+      instants.bhadraPucchaStart = iso(split.puccha.start);
+      instants.bhadraPucchaEnd = iso(split.puccha.end);
     }
   }
 

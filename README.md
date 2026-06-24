@@ -15,8 +15,8 @@ remote API.
 ## Features
 
 - **The five aṅgas** — vāra (sunrise-to-sunrise weekday), tithi, nakṣatra, yoga, and
-  karaṇa (including Viṣṭi / Bhadra), plus the pūrṇimānta / amānta lunar month with
-  adhika (leap) and kṣaya (lost) month detection.
+  karaṇa (including Viṣṭi / Bhadra, with its Mukha/Pucchā split and Vāsa), plus the
+  pūrṇimānta / amānta lunar month with adhika (leap) and kṣaya (lost) month detection.
 - **Daily pañcāṅga** — `dailyPanchanga(date, loc)` bundles all five aṅgas (each resolved
   at sunrise, with its end-time) and the day's sun/moon instants into one record.
 - **Astronomy primitives** — Lahiri ayanāṁśa (IAU 1976 precession), sidereal longitudes
@@ -146,8 +146,8 @@ The public surface (see [`src/index.ts`](src/index.ts)) is layered:
 
 **3. Calendar elements** — `tithiAt`, `tithiBoundaries`, `nakshatraAt`,
 `nakshatraBoundaries`, `yogaAt`, `yogaBoundaries`, `karanaAt`, `karanaIndexAt`,
-`karanaName`, `karanaBoundaries`, `bhadraIntervals`, `elongation`, `newMoons`,
-`solarIngress`, `lunarMonth`. Name tables: `TITHI_NAMES`, `NAKSHATRA_NAMES`,
+`karanaName`, `karanaBoundaries`, `bhadraIntervals`, `bhadraSplit`, `elongation`,
+`newMoons`, `solarIngress`, `lunarMonth`. Name tables: `TITHI_NAMES`, `NAKSHATRA_NAMES`,
 `YOGA_NAMES`, `MOVABLE_KARANAS`, `LUNAR_MONTH_NAMES`.
 
 **4. Daily aggregator** — `dailyPanchanga(date, loc)` → `DailyPanchanga` (the five aṅgas

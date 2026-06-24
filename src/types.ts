@@ -74,7 +74,8 @@ export type Observance =
    * `nakshatra` (e.g. Janmāṣṭamī's Rohiṇī): `"required"` filters out days where
    * the nakshatra is absent; `"preferred"` is only a tie-break.
    * `avoidKarana: "vishti"` (Bhadra — Holikā, Rakhi): the Bhadra overlap is
-   * recorded; the full Mukha/Pucchā split is deferred to Phase 4.
+   * recorded, and (via `bhadraSplit`) its Mukha/Pucchā windows and Vāsa are
+   * surfaced in the result instants.
    * `fallback` applies when the tithi pervades the window on NO candidate day.
    */
   | { kind: "tithi-pervades"; paksha: Paksha; tithi: TithiRef; window: Kala;
