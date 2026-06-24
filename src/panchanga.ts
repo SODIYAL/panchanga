@@ -32,10 +32,20 @@ import {
   riseSet,
   sunset,
   moonrise,
+  rahuKala,
+  yamaganda,
+  gulikaKala,
+  abhijitMuhurta,
   VARA_NAMES,
+  type TimeWindow,
 } from "./time.js";
 
 const DAY_MS = 86_400_000;
+
+/** Render a kāla window as ISO-UTC start/end, or null if unavailable. */
+function isoWindow(w: TimeWindow | null): IsoWindow | null {
+  return w ? { start: w.start.toISOString(), end: w.end.toISOString() } : null;
+}
 
 /** A running aṅga (nakṣatra / yoga / karaṇa) prevailing at sunrise. */
 export interface RunningElement {
@@ -45,6 +55,24 @@ export interface RunningElement {
   name: string;
   /** ISO-UTC instant this element ends (gives way to the next). */
   endsAt: string;
+}
+
+/** A time window as ISO-UTC start/end instants. */
+export interface IsoWindow {
+  start: string;
+  end: string;
+}
+
+/** The weekday-governed day-part muhūrtas (ISO-UTC; null at polar latitudes). */
+export interface DayMuhurtas {
+  /** Inauspicious — Rāhu Kāla. */
+  rahuKala: IsoWindow | null;
+  /** Inauspicious — Yamaganda. */
+  yamaganda: IsoWindow | null;
+  /** Gulika Kāla. */
+  gulika: IsoWindow | null;
+  /** Auspicious — Abhijit Muhūrta (centred on solar noon). */
+  abhijit: IsoWindow | null;
 }
 
 /** The full pañcāṅga for one civil day at one location. */
@@ -65,6 +93,8 @@ export interface DailyPanchanga {
   karana: RunningElement;
   /** Lunar-month labels + paksha at sunrise. */
   month: { purnimanta: string; amanta: string; paksha: Paksha };
+  /** Weekday-governed day-part muhūrtas (Rāhu / Yama / Gulika / Abhijit). */
+  muhurta: DayMuhurtas;
 }
 
 /**
@@ -114,5 +144,11 @@ export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
     yoga: { index: yb.index, name: YOGA_NAMES[yb.index], endsAt: yb.end.toISOString() },
     karana: { index: kb.index, name: kb.name, endsAt: kb.end.toISOString() },
     month: { purnimanta: lm.purnimantaLabel, amanta: lm.amantaLabel, paksha: lm.paksha },
+    muhurta: {
+      rahuKala: isoWindow(rahuKala(date, loc)),
+      yamaganda: isoWindow(yamaganda(date, loc)),
+      gulika: isoWindow(gulikaKala(date, loc)),
+      abhijit: isoWindow(abhijitMuhurta(date, loc)),
+    },
   };
 }

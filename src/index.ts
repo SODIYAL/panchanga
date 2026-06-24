@@ -26,6 +26,10 @@ export {
   pradosha,
   nishita,
   brahmaMuhurta,
+  rahuKala,
+  yamaganda,
+  gulikaKala,
+  abhijitMuhurta,
   sankrantiPunyaKala,
   type GeoLocation,
   type TimeWindow,
@@ -67,6 +71,8 @@ export {
   dailyPanchanga,
   type DailyPanchanga,
   type RunningElement,
+  type IsoWindow,
+  type DayMuhurtas,
 } from "./panchanga.js";
 
 // ── Observance-rule grammar (the keystone) ──────────────────────────────────

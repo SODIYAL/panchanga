@@ -24,7 +24,14 @@ import {
   karanaAt,
   karanaIndexAt,
 } from "../src/elements.js";
-import { varaAt, VARA_NAMES } from "../src/time.js";
+import {
+  varaAt,
+  VARA_NAMES,
+  rahuKala,
+  yamaganda,
+  gulikaKala,
+  abhijitMuhurta,
+} from "../src/time.js";
 import { dailyPanchanga } from "../src/panchanga.js";
 import type { GeoLocation } from "../src/types.js";
 
@@ -143,5 +150,84 @@ describe("dailyPanchanga — the five aṅgas for one day", () => {
   it("resolves yoga at sunrise (the sunrise instant lies inside the reported yoga)", () => {
     const sr = new Date(p.sunrise!);
     expect(yogaBoundaries(sr).index).toBe(p.yoga.index);
+  });
+
+  it("carries all four day-part muhūrtas as ISO strings", () => {
+    expect(p.muhurta.rahuKala?.start).toMatch(/^2026-01-23T/);
+    expect(p.muhurta.abhijit?.start).toMatch(/^2026-01-23T/);
+    for (const k of ["rahuKala", "yamaganda", "gulika", "abhijit"] as const) {
+      expect(p.muhurta[k]).not.toBeNull();
+    }
+  });
+});
+
+describe("muhūrta — Rāhu / Yamaganda / Gulika / Abhijit (day-eighths)", () => {
+  // 2026-01-23 is a Friday (weekday 5): Rāhu=part 4, Yama=part 7, Gulika=part 2.
+  const friday = new Date("2026-01-23T00:00:00Z");
+  const near = (a: number, b: number) => Math.abs(a - b) <= 2; // ms tolerance
+
+  function eighth(sr: number, ss: number, seg: number) {
+    const e = (ss - sr) / 8;
+    return { start: sr + (seg - 1) * e, end: sr + seg * e };
+  }
+
+  it("places Rāhu / Yama / Gulika in the correct weekday eighths (Friday)", () => {
+    const p = dailyPanchanga(friday, NEW_DELHI);
+    expect(p.vara.name).toBe("Shukravara");
+    const sr = new Date(p.sunrise!).getTime();
+    const ss = new Date(p.sunset!).getTime();
+
+    const rk = rahuKala(friday, NEW_DELHI)!;
+    const ym = yamaganda(friday, NEW_DELHI)!;
+    const gl = gulikaKala(friday, NEW_DELHI)!;
+
+    expect(near(rk.start.getTime(), eighth(sr, ss, 4).start)).toBe(true);
+    expect(near(rk.end.getTime(), eighth(sr, ss, 4).end)).toBe(true);
+    expect(near(ym.start.getTime(), eighth(sr, ss, 7).start)).toBe(true);
+    expect(near(gl.start.getTime(), eighth(sr, ss, 2).start)).toBe(true);
+  });
+
+  it("each day-eighth is 1/8 of the daytime and lies within [sunrise, sunset]", () => {
+    const p = dailyPanchanga(friday, NEW_DELHI);
+    const sr = new Date(p.sunrise!).getTime();
+    const ss = new Date(p.sunset!).getTime();
+    const eighthMs = (ss - sr) / 8;
+    for (const w of [
+      rahuKala(friday, NEW_DELHI)!,
+      yamaganda(friday, NEW_DELHI)!,
+      gulikaKala(friday, NEW_DELHI)!,
+    ]) {
+      expect(w.start.getTime()).toBeGreaterThanOrEqual(sr - 2);
+      expect(w.end.getTime()).toBeLessThanOrEqual(ss + 2);
+      expect(Math.abs((w.end.getTime() - w.start.getTime()) - eighthMs)).toBeLessThan(2);
+    }
+  });
+
+  it("Rāhu / Yama / Gulika occupy three distinct eighths", () => {
+    const starts = new Set([
+      rahuKala(friday, NEW_DELHI)!.start.getTime(),
+      yamaganda(friday, NEW_DELHI)!.start.getTime(),
+      gulikaKala(friday, NEW_DELHI)!.start.getTime(),
+    ]);
+    expect(starts.size).toBe(3);
+  });
+
+  it("Abhijit is the 8th of 15 day-muhūrtas, centred on solar noon", () => {
+    const p = dailyPanchanga(friday, NEW_DELHI);
+    const sr = new Date(p.sunrise!).getTime();
+    const ss = new Date(p.sunset!).getTime();
+    const ab = abhijitMuhurta(friday, NEW_DELHI)!;
+    const mid = (ab.start.getTime() + ab.end.getTime()) / 2;
+    expect(Math.abs(mid - (sr + (ss - sr) / 2))).toBeLessThan(1000);
+    expect(Math.abs((ab.end.getTime() - ab.start.getTime()) - (ss - sr) / 15)).toBeLessThan(2);
+  });
+
+  it("maps a different weekday to different eighths (Sunday Rāhu = last part, ends at sunset)", () => {
+    // 2026-01-25 is a Sunday → Rāhu is the 8th (last) eighth, ending at sunset.
+    const sunday = new Date("2026-01-25T00:00:00Z");
+    const p = dailyPanchanga(sunday, NEW_DELHI);
+    expect(p.vara.name).toBe("Ravivara");
+    const ss = new Date(p.sunset!).getTime();
+    expect(near(rahuKala(sunday, NEW_DELHI)!.end.getTime(), ss)).toBe(true);
   });
 });
