@@ -234,6 +234,49 @@ export function sunset(date: Date, loc: GeoLocation): Date | null {
 }
 
 // ---------------------------------------------------------------------------
+// Vāra (weekday) — sunrise-to-sunrise reckoning
+// ---------------------------------------------------------------------------
+
+/** The 7 vāras (weekdays), index 0 = Sunday (Ravivāra) … 6 = Saturday. */
+export const VARA_NAMES = [
+  "Ravivara", "Somavara", "Mangalavara", "Budhavara",
+  "Guruvara", "Shukravara", "Shanivara",
+] as const;
+
+export interface Vara {
+  /** Weekday index 0..6 (0 = Sunday / Ravivāra). */
+  index: number;
+  /** Vāra name (Ravivāra … Śanivāra). */
+  name: string;
+}
+
+/**
+ * The vāra (weekday) governing the instant `date` at `loc`.
+ *
+ * The pañcāṅga day runs SUNRISE-to-SUNRISE, not civil midnight: the hours
+ * between local midnight and sunrise still belong to the PREVIOUS weekday. So
+ * we take the local calendar day of `date`, and if `date` falls before that
+ * day's sunrise, roll the owning date back one calendar day, then read the
+ * weekday of the owning date (a calendar date's weekday is timezone-invariant,
+ * so we anchor it at noon UTC).
+ *
+ * Returns `null` only when sunrise cannot be found (polar day/night).
+ */
+export function varaAt(date: Date, loc: GeoLocation): Vara | null {
+  const dayStart = startOfLocalDayUTC(date, loc.timeZone);
+  const sr = riseSet("rise", dayStart, loc);
+  if (!sr) return null;
+  let owningDate = localDayString(date, loc.timeZone);
+  if (date.getTime() < sr.getTime()) {
+    const d = new Date(`${owningDate}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    owningDate = d.toISOString().slice(0, 10);
+  }
+  const index = new Date(`${owningDate}T12:00:00Z`).getUTCDay();
+  return { index, name: VARA_NAMES[index] };
+}
+
+// ---------------------------------------------------------------------------
 // 3. Kāla windows
 // ---------------------------------------------------------------------------
 //

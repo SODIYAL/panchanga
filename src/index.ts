@@ -16,6 +16,8 @@ export {
   riseSet,
   moonrise,
   sunset,
+  varaAt,
+  VARA_NAMES,
   sunriseWindow,
   pratahkala,
   purvahna,
@@ -27,6 +29,7 @@ export {
   sankrantiPunyaKala,
   type GeoLocation,
   type TimeWindow,
+  type Vara,
 } from "./time.js";
 
 export {
@@ -35,23 +38,36 @@ export {
   tithiBoundaries,
   nakshatraAt,
   nakshatraBoundaries,
+  yogaAt,
+  yogaBoundaries,
   karanaIndexAt,
   karanaAt,
   karanaName,
+  karanaBoundaries,
   bhadraIntervals,
   newMoons,
   solarIngress,
   lunarMonth,
   TITHI_NAMES,
   NAKSHATRA_NAMES,
+  YOGA_NAMES,
   MOVABLE_KARANAS,
   LUNAR_MONTH_NAMES,
   type TithiBoundaries,
   type NakshatraBoundaries,
+  type YogaBoundaries,
+  type KaranaBoundaries,
   type KaranaInterval,
   type MonthSystem,
   type LunarMonth,
 } from "./elements.js";
+
+// ── Daily pañcāṅga aggregator ───────────────────────────────────────────────
+export {
+  dailyPanchanga,
+  type DailyPanchanga,
+  type RunningElement,
+} from "./panchanga.js";
 
 // ── Observance-rule grammar (the keystone) ──────────────────────────────────
 export type {

@@ -269,6 +269,75 @@ export function nakshatraBoundaries(around: FlexibleDateTime): NakshatraBoundari
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// 2b. Yoga (sidereal Sun + Moon longitude)
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Number of nitya-yogas; arc each spans = 360/27 = 13°20′. */
+const YOGA_COUNT = 27;
+const DEG_PER_YOGA = 360 / YOGA_COUNT;
+
+/** The 27 nitya-yoga names (index 0 = Vishkambha … 26 = Vaidhriti). */
+export const YOGA_NAMES = [
+  "Vishkambha", "Priti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda",
+  "Sukarman", "Dhriti", "Shula", "Ganda", "Vriddhi", "Dhruva",
+  "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan",
+  "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla",
+  "Brahma", "Indra", "Vaidhriti",
+] as const;
+
+/**
+ * The yoga "angle" at `date`: the SUM of the sidereal ecliptic longitudes of
+ * the Sun and Moon, reduced to [0,360). Contrast tithi/karaṇa (the Moon−Sun
+ * *difference*) and nakshatra (the Moon *alone*). The sum advances ~14.2°/day
+ * (Moon ~13.2 + Sun ~1) and is monotone, so each 13°20′ boundary is a clean
+ * single crossing.
+ */
+function yogaAngle(date: FlexibleDateTime): number {
+  return normalize360(
+    siderealLongitude(date, Body.Sun) + siderealLongitude(date, Body.Moon),
+  );
+}
+
+/**
+ * Yoga index 0..26 at `date` (0 = Vishkambha; 26 = Vaidhriti).
+ * Each nitya-yoga spans 360/27 = 13°20′ of (Sun + Moon) sidereal longitude.
+ */
+export function yogaAt(date: FlexibleDateTime): number {
+  return Math.floor(yogaAngle(date) / DEG_PER_YOGA);
+}
+
+export interface YogaBoundaries {
+  /** Yoga index 0..26 (0 = Vishkambha). */
+  index: number;
+  /** UTC instant this yoga begins. */
+  start: Date;
+  /** UTC instant this yoga ends. */
+  end: Date;
+}
+
+/**
+ * Boundaries of the yoga at `around`. The (Sun+Moon) sidereal sum advances
+ * monotonically (~14.2°/day), so a yoga lasts ~22–25 h; ±2 days brackets the
+ * adjacent boundaries safely and we bisect each crossing (the 360°→0° wrap for
+ * Vaidhriti→Vishkambha is handled by `bisectLongitudeCrossing`, exactly as for
+ * the Revati→Ashwini nakshatra wrap).
+ */
+export function yogaBoundaries(around: FlexibleDateTime): YogaBoundaries {
+  const t = MakeTime(around);
+  const centerMs = t.date.getTime();
+  const idx = yogaAt(around);
+  const startEdge = idx * DEG_PER_YOGA;
+  const endEdge = ((idx + 1) % YOGA_COUNT) * DEG_PER_YOGA;
+
+  const angle = (ms: number): number => yogaAngle(new Date(ms));
+
+  const DAY = 86_400_000;
+  const start = bisectLongitudeCrossing(angle, startEdge, centerMs - 2 * DAY, centerMs);
+  const end = bisectLongitudeCrossing(angle, endEdge, centerMs, centerMs + 2 * DAY);
+  return { index: idx, start, end };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // 3. Karaṇa & Bhadra (Viṣṭi)
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -283,6 +352,41 @@ export function karanaIndexAt(date: FlexibleDateTime): number {
 /** Karaṇa name at `date` (see karanaName / file header for the sequence). */
 export function karanaAt(date: FlexibleDateTime): string {
   return karanaName(karanaIndexAt(date));
+}
+
+export interface KaranaBoundaries {
+  /** Half-tithi index 0..59 within the lunation. */
+  index: number;
+  /** Karaṇa name (Bava … Naga). */
+  name: string;
+  /** UTC instant this karaṇa begins (elongation = h·6°). */
+  start: Date;
+  /** UTC instant this karaṇa ends (elongation = (h+1)·6°). */
+  end: Date;
+}
+
+/**
+ * Boundaries of the karaṇa (half-tithi) containing `around`. Mirrors
+ * `tithiBoundaries` on a 6° grid: a karaṇa spans elongation [h·6°, (h+1)·6°),
+ * so we locate the start at h·6° (backward) and the end at (h+1)·6° (forward).
+ * The new-moon wrap (h=59 ends at phase 0°) is seamless because the target is
+ * taken mod 360.
+ */
+export function karanaBoundaries(around: FlexibleDateTime): KaranaBoundaries {
+  const t = MakeTime(around);
+  const h = karanaIndexAt(around);
+  const startTarget = (h * DEG_PER_KARANA) % 360;
+  const endTarget = ((h + 1) * DEG_PER_KARANA) % 360;
+  const start = SearchMoonPhase(startTarget, t, -3);
+  const end = SearchMoonPhase(endTarget, t, +3);
+  if (!start || !end) {
+    throw new Error(
+      `karanaBoundaries: SearchMoonPhase failed for karaṇa ${h} near ${new Date(
+        t.date.getTime(),
+      ).toISOString()}`,
+    );
+  }
+  return { index: h, name: karanaName(h), start: start.date, end: end.date };
 }
 
 export interface KaranaInterval {
