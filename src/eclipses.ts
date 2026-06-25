@@ -97,11 +97,14 @@ export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
     const total = e.sd_total > 0 ? span(e.sd_total) : null;
 
     const visible = loc ? altitude(Body.Moon, peak, loc) > 0 : null;
-    const firstContact = (partial ?? penumbral).start;
-    const lastContact = (partial ?? penumbral).end;
-    const sutak = visible
-      ? { start: new Date(firstContact.getTime() - 9 * HOUR_MS), end: lastContact }
-      : null;
+    // Sūtak applies only to a grahaṇa with an UMBRAL phase. A purely penumbral
+    // (māndya / upacchāyā) lunar eclipse is not reckoned as a grahaṇa in the
+    // Smārta convention, so it carries no sūtak; and for umbral eclipses the
+    // window is reckoned from the umbral (partial) contacts, not the penumbral.
+    const sutak =
+      visible && partial
+        ? { start: new Date(partial.start.getTime() - 9 * HOUR_MS), end: partial.end }
+        : null;
 
     out.push({ kind: e.kind, peak, penumbral, partial, total, visible, sutak });
     e = NextLunarEclipse(e.peak);
