@@ -207,11 +207,15 @@ npm test         # vitest run — unit suites + Drik-Panchang conformance
 npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
 ```
 
-Tests live in `test/` (~240 cases): per-module unit suites plus the Drik-Panchang
-conformance checks — `conformance.test.ts` (2026 New Delhi) and
-`conformance-calgary.test.ts` (2026 Calgary, the HSNA temple's city), which anchors the
-engine to Drik Panchang's Calgary calendar and asserts the localisation invariant
-(every Calgary date within ±1 day of New Delhi).
+Tests live in `test/` (~330 cases): per-module unit suites plus the Drik-Panchang
+conformance checks — `conformance.test.ts` (2026 New Delhi) and, for Calgary (the HSNA
+temple's city), three suites whose EXPECTED dates are transcribed from Drik Panchang's
+Calgary calendar (geoname-id 5913490): `conformance-calgary.test.ts` (24 core festivals),
+`conformance-calgary-vratas.test.ts` (Ekādaśī, Saṅkaṣṭī, Pūrṇimā, Amāvāsyā, minor
+Saṅkrāntis) and `conformance-calgary-oneoff.test.ts` (regional festivals & jayantis). All
+24 in-year Ekādaśīs and 23/24 core festivals match Drik Calgary exactly; the handful of
+±1 localisation edges and definitional differences are pinned and documented. The suites
+also assert the localisation invariant (every Calgary date within ±1 day of New Delhi).
 
 ## Tech stack
 

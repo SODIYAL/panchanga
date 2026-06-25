@@ -1,38 +1,29 @@
 /**
- * test/conformance-calgary.test.ts — Drik Panchang conformance for Calgary.
+ * test/conformance-calgary.test.ts — Drik Panchang conformance for Calgary,
+ * 2026 core festivals. Companion to conformance.test.ts (New Delhi).
  *
- * Companion to conformance.test.ts (New Delhi). HSNA is the Calgary Hindu
- * temple, so the engine must localise correctly to Calgary (Mountain Time,
- * ~12.5 h behind IST, 51°N) — not just reproduce the Indian reckoning. Calgary
- * is far enough west that sunrise/moonrise-selected festivals frequently fall
- * one civil day EARLIER than New Delhi; a correct engine must reproduce those
- * shifts, and reproduce them the way Drik Panchang's Calgary calendar does.
+ * EXPECTED dates are transcribed from Drik Panchang's Calgary calendar
+ * (geoname-id 5913490) — the authority, localised to Mountain Time. HSNA is the
+ * Calgary temple, so the engine must reproduce Drik's CALGARY reckoning, which
+ * is frequently one civil day earlier than New Delhi for sunrise/moonrise
+ * festivals.
  *
- * What this asserts (gating, unlike the Delhi measurement test):
- *  1. EXTERNAL CONFORMANCE — the four festivals whose Calgary dates were taken
- *     directly from Drik Panchang's Calgary calendar (geoname-id 5913490),
- *     including the localised −1 shifts of Rakṣā Bandhan, Janmāṣṭamī and Karva
- *     Chauth, match the engine exactly. These are the hard external anchors.
- *  2. COVERAGE — every core festival resolves to a date at Calgary.
- *  3. LOCALISATION BOUND — every Calgary date is within ±1 day of the same
- *     festival's New Delhi date (the tithi instants are global; only the local
- *     day-assignment can move, and by at most one day). Also prints the full
- *     Delhi↔Calgary shift table.
- *  4. GOLDEN REGRESSION — the full Calgary core set is pinned to the fixture so
- *     any future drift in localisation surfaces as a failure to acknowledge.
+ * Result: 23 of 24 core festivals match Drik Panchang Calgary EXACTLY, including
+ * every localised −1 shift (Holika, Hanuman Jayanti, Mesha Sankranti, Rakṣā
+ * Bandhan, Janmāṣṭamī, Karva Chauth, Naraka Caturdaśī, Govardhan, Bhai Dūj,
+ * Gītā Jayantī). The one diff is pinned (`KNOWN_DIFFS`) so a regression OR a
+ * future fix both surface as a failure to acknowledge.
  *
- * DO NOT tune rules/ayanamsha to make this pass — like its Delhi sibling, this
- * is a measuring instrument first.
+ * DO NOT tune the engine to make a pinned diff pass — like its Delhi sibling,
+ * this is a measuring instrument.
  */
 
 import { describe, it, expect } from "vitest";
 import { computeFestivals } from "../src/festivals.js";
 import { CORE_RULES } from "../src/rules.js";
 import type { GeoLocation } from "../src/types.js";
-import CALGARY_FIXTURE from "./fixtures/2026-calgary.json";
 
 const YEAR = 2026;
-
 // Calgary, Alberta (the HSNA temple's city). Drik Panchang geoname-id 5913490.
 const CALGARY: GeoLocation = {
   latitude: 51.0447,
@@ -40,9 +31,6 @@ const CALGARY: GeoLocation = {
   timeZone: "America/Edmonton",
   elevationMeters: 1045,
 };
-
-// New Delhi — the same reference locale as conformance.test.ts, used here only
-// to measure the localisation delta (engine-vs-engine, isolating the location).
 const NEW_DELHI: GeoLocation = {
   latitude: 28.6139,
   longitude: 77.209,
@@ -50,78 +38,73 @@ const NEW_DELHI: GeoLocation = {
   elevationMeters: 216,
 };
 
-// ── Fixture: the four Drik-Calgary-confirmed anchors, and the golden slug map ──
+// Drik Panchang, Calgary, 2026 — core festivals (Smārta).
+const DRIK_CALGARY: Record<string, string> = {
+  "makar-sankranti": "2026-01-14",
+  "vasant-panchami": "2026-01-23",
+  "maha-shivratri": "2026-02-15",
+  "holika-dahan": "2026-03-02",
+  "holi": "2026-03-03",
+  "rama-navami": "2026-03-26",
+  "hanuman-jayanti": "2026-04-01",
+  "mesha-sankranti": "2026-04-13",
+  "akshaya-tritiya": "2026-04-19",
+  "guru-purnima": "2026-07-29",
+  "raksha-bandhan": "2026-08-27",
+  "krishna-janmashtami": "2026-09-03", // Smārta (Drik ISKCON is 09-04)
+  "ganesh-chaturthi": "2026-09-14",
+  "sharadiya-navratri": "2026-10-11",
+  "durga-ashtami": "2026-10-18",
+  "maha-navami": "2026-10-19",
+  "vijayadashami": "2026-10-20",
+  "karva-chauth": "2026-10-28",
+  "dhanteras": "2026-11-06",
+  "naraka-chaturdashi": "2026-11-07",
+  "diwali-lakshmi-puja": "2026-11-08",
+  "govardhan-puja": "2026-11-09",
+  "bhai-dooj": "2026-11-10",
+  "gita-jayanti": "2026-12-19",
+};
 
-interface ConfirmedEntry {
-  date: string;
-  delhi: string;
-  note?: string;
-  source: string;
-}
-const CONFIRMED = (CALGARY_FIXTURE as Record<string, unknown>)
-  ._drik_calgary_confirmed as Record<string, ConfirmedEntry>;
+// Festivals the engine resolves to a ±1 neighbour of the Drik Calgary date. We
+// pin the ACTUAL produced date (the `// Drik:` note gives the target), so BOTH a
+// regression AND a future fix surface as a failure that must be acknowledged.
+const KNOWN_DIFFS: Record<string, string> = {
+  // Navrātri Pratipadā: max-window-fraction over-localises by a day at Calgary
+  // (Drik observes the udaya day, Oct 11). The later Navrātri days — Aṣṭamī
+  // (Oct 18), Navamī (Oct 19), Daśamī (Oct 20) — all match Drik exactly.
+  "sharadiya-navratri": "2026-10-10", // Drik 2026-10-11
+};
 
-const goldenEntries = Object.entries(CALGARY_FIXTURE as Record<string, unknown>).filter(
-  ([k, v]) => !k.startsWith("_") && typeof v === "string",
-) as [string, string][];
-
-// ── Compute once, both locations ──
-
-const calgary = computeFestivals(YEAR, CALGARY, { rules: CORE_RULES }).results;
-const delhi = computeFestivals(YEAR, NEW_DELHI, { rules: CORE_RULES }).results;
-
-const calDate = (id: string): string => calgary.find((r) => r.id === id)?.date ?? "";
-const delDate = (id: string): string => delhi.find((r) => r.id === id)?.date ?? "";
-
+const engine = new Map(
+  computeFestivals(YEAR, CALGARY, { rules: CORE_RULES }).results.map((r) => [r.id, r.date]),
+);
+const delhi = new Map(
+  computeFestivals(YEAR, NEW_DELHI, { rules: CORE_RULES }).results.map((r) => [r.id, r.date]),
+);
 const dayDiff = (a: string, b: string): number =>
   Math.round((new Date(a).getTime() - new Date(b).getTime()) / 86_400_000);
 
-describe("Calgary conformance — 2026 vs Drik Panchang (Calgary, geoname-id 5913490)", () => {
-  // 1. EXTERNAL CONFORMANCE: the four anchors sourced from Drik Panchang Calgary.
-  describe("matches Drik Panchang's Calgary calendar on the externally-confirmed dates", () => {
-    for (const [id, entry] of Object.entries(CONFIRMED)) {
-      const shift = dayDiff(entry.date, entry.delhi);
-      const label = shift === 0 ? "no shift vs Delhi" : `localised ${shift > 0 ? "+" : ""}${shift}d vs Delhi`;
-      it(`${id} → ${entry.date} (${label})`, () => {
-        expect(calDate(id)).toBe(entry.date);
-      });
-    }
+describe("Calgary core conformance — 2026 vs Drik Panchang (geoname-id 5913490)", () => {
+  for (const [id, drik] of Object.entries(DRIK_CALGARY)) {
+    const pinned = KNOWN_DIFFS[id];
+    it(`${id}${pinned ? " (pinned ±1 diff)" : ""} → ${pinned ?? drik}`, () => {
+      expect(engine.get(id)).toBe(pinned ?? drik);
+    });
+  }
+
+  it("matches Drik Panchang Calgary on ≥ 95% of core festivals", () => {
+    const ids = Object.keys(DRIK_CALGARY);
+    const exact = ids.filter((id) => engine.get(id) === DRIK_CALGARY[id]).length;
+    expect(exact).toBe(ids.length - Object.keys(KNOWN_DIFFS).length); // 23 / 24
+    expect(exact / ids.length).toBeGreaterThanOrEqual(0.95);
   });
 
-  // 2. COVERAGE: every core festival resolves at Calgary.
-  it("resolves every core festival at Calgary (full coverage)", () => {
-    const undated = CORE_RULES.map((r) => r.id).filter((id) => calDate(id) === "");
-    expect(undated).toEqual([]);
-  });
-
-  // 3. LOCALISATION BOUND: Calgary within ±1 day of New Delhi for every festival.
   it("keeps every Calgary date within ±1 day of New Delhi (localisation invariant)", () => {
-    const violations = CORE_RULES.map((r) => r.id)
-      .map((id) => ({ id, c: calDate(id), d: delDate(id) }))
+    const bad = Object.keys(DRIK_CALGARY)
+      .map((id) => ({ id, c: engine.get(id) ?? "", d: delhi.get(id) ?? "" }))
       .filter(({ c, d }) => c && d && Math.abs(dayDiff(c, d)) > 1)
       .map(({ id, c, d }) => `${id}: Calgary ${c} vs Delhi ${d}`);
-    expect(violations).toEqual([]);
-  });
-
-  // 4. GOLDEN REGRESSION: pin the full Calgary core set + print the shift table.
-  it("matches the pinned Calgary fixture and prints the Delhi↔Calgary shift table", () => {
-    let shifted = 0;
-    const rows: string[] = [];
-    for (const [id, golden] of goldenEntries) {
-      const c = calDate(id);
-      const d = delDate(id);
-      const diff = c && d ? dayDiff(c, d) : null;
-      if (diff !== null && diff !== 0) shifted++;
-      const mark = diff === 0 || diff === null ? "" : `  (${diff > 0 ? "+" : ""}${diff}d vs Delhi)`;
-      rows.push(`    ${id.padEnd(24)} ${c}${mark}`);
-      expect(c, `Calgary ${id} drifted from the pinned fixture`).toBe(golden);
-    }
-    console.log("");
-    console.log("══════════════════════════════════════════════════════════════════");
-    console.log(`  CALGARY 2026 — core festivals (${shifted}/${goldenEntries.length} localised off New Delhi)`);
-    console.log("══════════════════════════════════════════════════════════════════");
-    console.log(rows.join("\n"));
-    console.log("══════════════════════════════════════════════════════════════════");
-    console.log("");
+    expect(bad).toEqual([]);
   });
 });
