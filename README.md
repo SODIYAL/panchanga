@@ -168,7 +168,11 @@ Types: `LunarEclipse`, `SolarEclipse`, `GrahanKind`.
 `purnimaVratRules`, `purnimaSnanaRules`, `amavasyaRules`, `sankrantiRules`, `oneOffFestivalRules`,
 `regionalFestivalRules` (each
 `(year)`), `CHHATH_RULE`, and `allRules(year)`. Grammar types: `Observance`,
-`FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`.
+`FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`. Observance kinds
+include `tithi-pervades` (with `udaya` / `max-window-fraction` precedence, an
+`adhika:"prefer-adhika"` leap-month policy, and a `nearest-window` fallback),
+`solar-ingress`, `moonrise`, `solar-arghya`, `derived`, `nakshatra-pervades`
+(Onam), and `weekday-relative` (Varalakṣmī).
 
 `allRules(year)` covers ~160 observances: the 24 major festivals, every Ekādaśī,
 Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata, Amāvāsyā, all 12
