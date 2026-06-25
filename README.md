@@ -19,6 +19,8 @@ remote API.
   pūrṇimānta / amānta lunar month with adhika (leap) and kṣaya (lost) month detection.
 - **Daily pañcāṅga** — `dailyPanchanga(date, loc)` bundles all five aṅgas (each resolved
   at sunrise, with its end-time) and the day's sun/moon instants into one record.
+- **Grahaṇa (eclipses)** — solar & lunar eclipse type, contact timings, local visibility,
+  and sūtak windows (9h lunar / 12h solar) for any year and place.
 - **Astronomy primitives** — Lahiri ayanāṁśa (IAU 1976 precession), sidereal longitudes
   and Sun rāśi, new moons, solar ingress (saṅkrānti).
 - **Time & kāla windows** — timezone/DST-safe sunrise, sunset and moonrise, the muhūrta
@@ -153,6 +155,10 @@ The public surface (see [`src/index.ts`](src/index.ts)) is layered:
 **4. Daily aggregator** — `dailyPanchanga(date, loc)` → `DailyPanchanga` (the five aṅgas
 at sunrise + sun/moon instants + month label + the day's Rāhu/Yama/Gulika/Abhijit
 muhūrtas).
+
+**4b. Grahaṇa (eclipses)** — `lunarEclipses(year, loc?)`, `solarEclipses(year, loc?)` →
+eclipse type, contact phases, local visibility, and sūtak. Types: `LunarEclipse`,
+`SolarEclipse`, `Phase`.
 
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data: `CORE_RULES` plus the generators

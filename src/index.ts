@@ -70,6 +70,15 @@ export {
   type LunarMonth,
 } from "./elements.js";
 
+// ── Grahaṇa (eclipses) ──────────────────────────────────────────────────────
+export {
+  lunarEclipses,
+  solarEclipses,
+  type LunarEclipse,
+  type SolarEclipse,
+  type Phase,
+} from "./eclipses.js";
+
 // ── Daily pañcāṅga aggregator ───────────────────────────────────────────────
 export {
   dailyPanchanga,
