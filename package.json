@@ -42,7 +42,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.api.json",
     "prepare": "tsc -p tsconfig.json",
     "test": "vitest run",
     "prepublishOnly": "npm test && npm run build"

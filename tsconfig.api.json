@@ -1,0 +1,11 @@
+{
+  "comment": "Type-checks the api/ serverless handlers (which import the built engine from dist/). The main build (tsconfig.json) compiles only src/ → dist/; this is noEmit-only.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "outDir": ".api-typecheck"
+  },
+  "include": ["api"],
+  "exclude": ["node_modules", "dist"]
+}
