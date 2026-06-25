@@ -425,7 +425,24 @@ const SYNODIC_MS = 29.530588853 * DAY_MS;
  * at (n − 0.5)/30 of the lunation, read the tithi there, then STEP toward `n`
  * by half a tithi at a time (re-reading boundaries) until we land on `n`.
  */
+// Memoized by (lunation start, n): every tithi rule re-walks the same ~16
+// lunations, and rules sharing a tithi number (all Ekādaśīs, all Pradoṣa, …)
+// ask for the same (nmStart, n). Pure function → behaviour-preserving cache.
+const _tithiIntervalCache = new Map<string, { start: Date; end: Date } | null>();
+
 function tithiIntervalInLunation(
+  nmStart: Date,
+  n: number,
+): { start: Date; end: Date } | null {
+  const key = `${nmStart.getTime()}:${n}`;
+  const cached = _tithiIntervalCache.get(key);
+  if (cached !== undefined) return cached;
+  const result = tithiIntervalInLunationUncached(nmStart, n);
+  if (_tithiIntervalCache.size < 50_000) _tithiIntervalCache.set(key, result); // bound memory
+  return result;
+}
+
+function tithiIntervalInLunationUncached(
   nmStart: Date,
   n: number,
 ): { start: Date; end: Date } | null {
