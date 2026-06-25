@@ -47,14 +47,16 @@ const EXPECTED: Record<string, string> = {
   "dattatreya-jayanti": "2026-12-23",
 };
 
-// ±1-day convention edges (tithi begins after the HSNA day's sunrise).
+// ±1-day convention edges that remain: the tithi begins after the HSNA day's
+// sunrise and these festivals have no later ritual window to anchor on (Nag
+// Panchami is a morning rite, Phulera Dooj is abuja/all-day, Hariyali Teej a
+// daytime rite, Kansh Vadh unanchored). The evening/midday festivals
+// (Rishi Panchami, Ahoi Ashtami, Kajari Teej) are now anchored on their
+// ritual kāla and match exactly.
 const KNOWN_DIFFS = new Set([
   "phulera-dooj",
   "hariyali-teej",
   "nag-panchami",
-  "kajari-teej",
-  "rishi-panchami",
-  "ahoi-ashtami",
   "kansh-vadh",
 ]);
 
