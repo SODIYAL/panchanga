@@ -46,6 +46,7 @@ import {
 
 import {
   type TimeWindow,
+  validateLocation,
   startOfLocalDayUTC,
   nextLocalDayStartUTC,
   localDayString,
@@ -893,6 +894,7 @@ export function computeFestival(
   loc: GeoLocation,
   resolved?: Map<string, FestivalResult>,
 ): FestivalResult {
+  validateLocation(loc);
   const diagnostics: string[] = [];
   const obs = rule.observance;
 
@@ -986,6 +988,7 @@ export function computeFestivals(
   loc: GeoLocation,
   opts: ComputeOptions = {},
 ): { results: FestivalResult[]; diagnostics: string[] } {
+  validateLocation(loc); // fail fast on bad input (not per-rule)
   const rules = opts.rules ?? [];
   const topDiagnostics: string[] = [];
   const resolved = new Map<string, FestivalResult>();
@@ -995,7 +998,21 @@ export function computeFestivals(
   const derived = rules.filter((r) => r.observance.kind === "derived");
 
   for (const rule of [...nonDerived, ...derived]) {
-    const res = computeFestival(rule, year, loc, resolved);
+    // Per-rule isolation: an unexpected throw in one resolver must NOT abort the
+    // whole batch — convert it to a dated-empty result (the never-silently-drop
+    // contract), so one bad rule can't take down the rest of the calendar.
+    let res: FestivalResult;
+    try {
+      res = computeFestival(rule, year, loc, resolved);
+    } catch (e) {
+      res = {
+        id: rule.id,
+        date: "",
+        instants: {},
+        monthLabel: { purnimanta: rule.month.purnimanta, amanta: "" },
+        diagnostics: [`rule "${rule.id}" threw during resolution: ${(e as Error).message}`],
+      };
+    }
     resolved.set(rule.id, res);
   }
 
