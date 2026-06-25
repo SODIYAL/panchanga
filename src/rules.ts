@@ -538,19 +538,25 @@ const PURNIMANTA_MONTHS = [
  * Adhika months (Padmini = adhika Shukla Ekadashi, Parama = adhika Krishna
  * Ekadashi) use their own canonical names.
  */
+// NOTE on krishna names: the engine labels months pūrṇimānta, so the Krishna
+// pakṣa of month M falls within month M (the fortnight before M's Pūrṇimā). The
+// canonical Ekadashi names follow that same pūrṇimānta attribution — e.g. Māgha
+// Kṛṣṇa = Ṣaṭtilā, Phālguna Kṛṣṇa = Vijayā — which is what Drik Panchang lists.
+// (An earlier version keyed the krishna column one month early, an amānta-style
+// offset, which mislabelled all twelve Krishna Ekadashis.)
 const EKADASHI_NAMES: Record<string, { shukla: string; krishna: string }> = {
-  Chaitra:      { shukla: "Kamada Ekadashi",       krishna: "Varuthini Ekadashi" },
-  Vaishakha:    { shukla: "Mohini Ekadashi",        krishna: "Apara Ekadashi" },
-  Jyeshtha:     { shukla: "Nirjala Ekadashi",       krishna: "Yogini Ekadashi" },
-  Ashadha:      { shukla: "Devshayani Ekadashi",    krishna: "Kamika Ekadashi" },
-  Shravana:     { shukla: "Putrada Ekadashi",       krishna: "Aja Ekadashi" },
-  Bhadrapada:   { shukla: "Parsva Ekadashi",        krishna: "Indira Ekadashi" },
-  Ashwina:      { shukla: "Papankusha Ekadashi",    krishna: "Rama Ekadashi" },
-  Kartika:      { shukla: "Devutthana Ekadashi",    krishna: "Utpanna Ekadashi" },
-  Margashirsha: { shukla: "Mokshada Ekadashi",      krishna: "Saphala Ekadashi" },
-  Pausha:       { shukla: "Putrada Ekadashi",       krishna: "Sat-tila Ekadashi" },
-  Magha:        { shukla: "Jaya Ekadashi",          krishna: "Vijaya Ekadashi" },
-  Phalguna:     { shukla: "Amalaki Ekadashi",       krishna: "Papamochani Ekadashi" },
+  Chaitra:      { shukla: "Kamada Ekadashi",       krishna: "Papamochani Ekadashi" },
+  Vaishakha:    { shukla: "Mohini Ekadashi",        krishna: "Varuthini Ekadashi" },
+  Jyeshtha:     { shukla: "Nirjala Ekadashi",       krishna: "Apara Ekadashi" },
+  Ashadha:      { shukla: "Devshayani Ekadashi",    krishna: "Yogini Ekadashi" },
+  Shravana:     { shukla: "Putrada Ekadashi",       krishna: "Kamika Ekadashi" },
+  Bhadrapada:   { shukla: "Parsva Ekadashi",        krishna: "Aja Ekadashi" },
+  Ashwina:      { shukla: "Papankusha Ekadashi",    krishna: "Indira Ekadashi" },
+  Kartika:      { shukla: "Devutthana Ekadashi",    krishna: "Rama Ekadashi" },
+  Margashirsha: { shukla: "Mokshada Ekadashi",      krishna: "Utpanna Ekadashi" },
+  Pausha:       { shukla: "Putrada Ekadashi",       krishna: "Saphala Ekadashi" },
+  Magha:        { shukla: "Jaya Ekadashi",          krishna: "Sat-tila Ekadashi" },
+  Phalguna:     { shukla: "Amalaki Ekadashi",       krishna: "Vijaya Ekadashi" },
 };
 
 /**
@@ -828,6 +834,12 @@ export function masikShivaratriRules(year: number): FestivalRule[] {
  * on the day the full Moon is up during Pūrṇimā (moonrise-vyāpti), which is the
  * day panchāṅgas list as "Purnima Vrat" (distinct from the next-morning
  * snāna-dāna Pūrṇimā).
+ *
+ * KNOWN ISSUE (vs Drik Panchang Calgary 2026): this fires a day early in ~3/13
+ * months (e.g. Jyeṣṭha Jun 28 vs DP Jun 29) when Pūrṇimā begins the prior
+ * evening. A plain udaya rule overcorrects (drops months where Pūrṇimā never
+ * touches a sunrise, and pushes others a day late), so the correct fix needs a
+ * proper udaya-with-fallback / vedha policy — tracked, not yet implemented.
  */
 export function purnimaVratRules(year: number): FestivalRule[] {
   void year;
