@@ -53,33 +53,31 @@ const EXPECTED: Record<string, string> = {
 // daytime rite, Kansh Vadh unanchored). The evening/midday festivals
 // (Rishi Panchami, Ahoi Ashtami, Kajari Teej) are now anchored on their
 // ritual kāla and match exactly.
-const KNOWN_DIFFS = new Set([
-  "phulera-dooj",
-  "hariyali-teej",
-  "nag-panchami",
-  "kansh-vadh",
-  // Resolves in the nija Jyeṣṭha (24 Jun) so it is produced EVERY year; HSNA
-  // places it in the 2026 Adhika Jyeṣṭha (25 May) — a festival-specific choice.
-  "ganga-dussehra",
-]);
+// Festivals the engine resolves to a ±1 neighbour of the HSNA date. We pin the
+// ACTUAL produced date (`// HSNA:` notes the target) rather than asserting
+// `not.toBe(hsna)`, so BOTH a regression AND a future fix surface as a failure
+// that must be consciously acknowledged — the test never silently rots.
+const PINNED_DIFFS: Record<string, string> = {
+  "phulera-dooj": "2026-02-19", //   HSNA 2026-02-18 (Dvitīyā begins after sunrise)
+  "hariyali-teej": "2026-08-15", //  HSNA 2026-08-14
+  "nag-panchami": "2026-08-17", //   HSNA 2026-08-16 (morning rite, no later kāla to anchor)
+  "kansh-vadh": "2026-11-20", //     HSNA 2026-11-19
+  "ganga-dussehra": "2026-06-24", // HSNA 2026-05-25 (nija Jyeṣṭha vs HSNA's adhika placement)
+};
 
 describe("HSNA 2026 one-off festival conformance", () => {
   for (const [id, date] of Object.entries(EXPECTED)) {
-    const known = KNOWN_DIFFS.has(id);
-    it(`${id}${known ? " (±1 known diff)" : ""}`, () => {
+    const pinned = PINNED_DIFFS[id];
+    it(`${id}${pinned ? " (±1 pinned diff)" : ""}`, () => {
       const got = dateOf(id);
       expect(got).not.toBe(""); // every rule must resolve to a date (coverage)
-      if (known) {
-        // pinned diff: still produces a date, but not yet the HSNA one
-        expect(got).not.toBe(date);
-      } else {
-        expect(got).toBe(date);
-      }
+      // pinned diffs assert the exact current date; the rest assert HSNA.
+      expect(got).toBe(pinned ?? date);
     });
   }
 
-  it("covers all 22 one-off festivals (15 exact + 7 pinned ±1 diffs)", () => {
+  it("covers all 22 one-off festivals (17 exact + 5 pinned ±1 diffs)", () => {
     const exact = Object.entries(EXPECTED).filter(([id, d]) => dateOf(id) === d).length;
-    expect(exact).toBe(Object.keys(EXPECTED).length - KNOWN_DIFFS.size);
+    expect(exact).toBe(Object.keys(EXPECTED).length - Object.keys(PINNED_DIFFS).length);
   });
 });
