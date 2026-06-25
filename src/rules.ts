@@ -1020,6 +1020,73 @@ export function oneOffFestivalRules(year: number): FestivalRule[] {
   ];
 }
 
+/**
+ * Additional regional festivals & jayantis from the Drik Panchang Calgary
+ * calendar, beyond the §4 core and the HSNA one-offs. Each is anchored on its
+ * ritual kāla (deity-birth festivals on madhyāhna/pradoṣa/niśīta, snāna rites at
+ * sunrise) and verified against Drik Panchang Calgary 2026
+ * (test/conformance-calgary-regional.test.ts).
+ *
+ * Helpers mirror oneOffFestivalRules: T (tithi-pervades), P (moonrise pūrṇimā),
+ * A (kṛṣṇa amāvāsyā at sunrise), SI (solar ingress / saṅkrānti-day festival).
+ */
+export function regionalFestivalRules(year: number): FestivalRule[] {
+  const T = (
+    id: string,
+    displayName: string,
+    month: string,
+    paksha: "shukla" | "krishna",
+    tithi: number,
+    window: "sunrise" | "purvahna" | "madhyahna" | "aparahna" | "pradosha" | "nishita" = "sunrise",
+    precedence: "udaya" | "max-window-fraction" | "first" | "second" = "udaya",
+  ): FestivalRule => ({
+    id, displayName, month: { purnimanta: month }, category: "lunar-tithi", extended: true,
+    observance: { kind: "tithi-pervades", paksha, tithi, window, precedence },
+  });
+  const P = (id: string, displayName: string, month: string): FestivalRule => ({
+    id, displayName, month: { purnimanta: month }, category: "moonrise", extended: true,
+    observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
+  });
+  const A = (id: string, displayName: string, month: string): FestivalRule => ({
+    id, displayName, month: { purnimanta: month }, category: "lunar-tithi", extended: true,
+    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
+  });
+  const SI = (id: string, displayName: string, rashi: number): FestivalRule => ({
+    id, displayName, category: "solar", extended: true,
+    observance: { kind: "solar-ingress", rashi, punyaKala: "after-moment-to-sunset" },
+  });
+  void year;
+  return [
+    // ── Māgha ──
+    T("ratha-saptami", "Ratha Saptami", "Magha", "shukla", 7),
+    T("bhishma-ashtami", "Bhishma Ashtami", "Magha", "shukla", 8, "madhyahna", "max-window-fraction"),
+    // ── Chaitra ──
+    T("gangaur", "Gangaur / Gauri Puja", "Chaitra", "shukla", 3),
+    T("yamuna-chhath", "Yamuna Chhath", "Chaitra", "shukla", 6),
+    T("swaminarayan-jayanti", "Swaminarayan Jayanti", "Chaitra", "shukla", 9),
+    // ── Vaiśākha — deity-birth jayantis on their ritual kāla ──
+    T("parashurama-jayanti", "Parashurama Jayanti", "Vaishakha", "shukla", 3, "pradosha", "max-window-fraction"),
+    T("ganga-saptami", "Ganga Saptami", "Vaishakha", "shukla", 7, "madhyahna", "max-window-fraction"),
+    T("sita-navami", "Sita Navami", "Vaishakha", "shukla", 9, "madhyahna", "max-window-fraction"),
+    T("narasimha-jayanti", "Narasimha Jayanti", "Vaishakha", "shukla", 14, "pradosha", "max-window-fraction"),
+    // ── Jyeṣṭha ──
+    A("vat-savitri-vrat", "Vat Savitri Vrat", "Jyeshtha"),
+    A("shani-jayanti", "Shani Jayanti", "Jyeshtha"),
+    P("vat-purnima-vrat", "Vat Purnima Vrat", "Jyeshtha"),
+    // ── Bhādrapada ──
+    T("radha-ashtami", "Radha Ashtami", "Bhadrapada", "shukla", 8),
+    T("ganesh-visarjan", "Ganesh Visarjan", "Bhadrapada", "shukla", 14),
+    // ── Āśvina ──
+    SI("vishwakarma-puja", "Vishwakarma Puja", 5), // on Kanya Sankranti day
+    // ── Kārtika ──
+    T("govatsa-dwadashi", "Govatsa Dwadashi", "Kartika", "krishna", 12),
+    T("kali-chaudas", "Kali Chaudas", "Kartika", "krishna", 14, "nishita", "max-window-fraction"),
+    // ── Mārgaśīrṣa ──
+    T("kalabhairav-jayanti", "Kalabhairav Jayanti", "Margashirsha", "krishna", 8, "nishita", "max-window-fraction"),
+    T("vivah-panchami", "Vivah Panchami", "Margashirsha", "shukla", 5),
+  ];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Public API — allRules(year)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1049,6 +1116,7 @@ export function allRules(year: number): FestivalRule[] {
     ...amavasyaRules(year),
     ...sankrantiRules(year),
     ...oneOffFestivalRules(year),
+    ...regionalFestivalRules(year),
     CHHATH_RULE,
   ];
 }
