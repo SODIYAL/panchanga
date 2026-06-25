@@ -27,11 +27,16 @@ remote API.
   windows (pūrvāhna, madhyāhna, aparāhna, pradoṣa, niśīta, brahma-muhūrta, …), and the
   weekday day-part periods **Rāhu Kāla, Yamaganda, Gulika, and Abhijit**.
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
-  pervasion-day selector that resolves each festival to a civil date and **never silently
-  drops**: every miss is explained in `diagnostics`.
-- **Validated** against Drik Panchang fixtures (2026) for **New Delhi and Calgary** —
-  the latter confirming the engine localises festival dates correctly (Calgary's
-  sunrise/moonrise-driven −1-day shifts match Drik Panchang's Calgary calendar).
+  pervasion-day selector that resolves ~195 observances to civil dates and **never
+  silently drops**: every miss is explained in `diagnostics`. Selection conventions are
+  first-class — `udaya` vs window-fraction precedence, a `nearest-window` fallback, an
+  `adhika:"prefer-adhika"` leap-month policy, Bhadra exclusion, and nakṣatra- and
+  weekday-anchored festivals (Onam, Varalakṣmī).
+- **Validated at two well-separated longitudes** against Drik Panchang fixtures (2026):
+  **New Delhi** and **Calgary** (the HSNA temple's city). All 24 core festivals and all
+  24 in-year Ekādaśīs match Drik's Calgary calendar exactly, including the −1-day
+  localisation shifts; the handful of remaining differences are convention edges, pinned
+  and documented in the tests.
 
 ## Requirements
 
@@ -174,11 +179,14 @@ include `tithi-pervades` (with `udaya` / `max-window-fraction` precedence, an
 `solar-ingress`, `moonrise`, `solar-arghya`, `derived`, `nakshatra-pervades`
 (Onam), and `weekday-relative` (Varalakṣmī).
 
-`allRules(year)` covers ~160 observances: the 24 major festivals, every Ekādaśī,
-Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata, Amāvāsyā, all 12
-Sankrāntis, Chhath, and ~22 regional festivals/jayantis (Ugadi, the Teej trio, Nag
-Panchami, Rath Yatra, Tulsi Vivah, Anant Chaturdashi, …) — validated against the HSNA
-2026 calendar (residual cases are ±1-day convention edges, pinned in the tests).
+`allRules(year)` covers ~195 observances: the 24 major festivals, every Ekādaśī,
+Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata (vrat) and Pūrṇimā
+snāna-dāna, Amāvāsyā, all 12 Sankrāntis, Chhath, the HSNA one-offs (Ugadi, the Teej
+trio, Nag Panchami, Rath Yatra, Tulsi Vivah, Anant Chaturdashi, …), and ~21 further
+regional festivals & jayantis (Ratha Saptamī, Narasimha/Paraśurāma/Sītā/Gaṅgā jayantis,
+Vat Sāvitrī, Vishwakarma, Kālī Chaudas, Onam, Varalakṣmī, …) — validated against Drik
+Panchang's New Delhi and Calgary calendars (residual cases are ±1-day convention edges,
+pinned in the tests).
 
 ## The rule grammar
 
@@ -187,14 +195,16 @@ declares how its civil date is resolved:
 
 | `kind` | Resolves by | Examples |
 |---|---|---|
-| `tithi-pervades` | A tithi pervading a kāla window on the chosen day, picked by a `precedence` policy (`max-window-fraction`, `udaya`, `first`, `second`); optional `nakshatra` filter and `avoidKarana: "vishti"` (Bhadra) | most lunar festivals |
-| `solar-ingress` | The Sun's sidereal ingress into a rāśi | Makar Saṅkrānti |
+| `tithi-pervades` | A tithi pervading a kāla window on the chosen day, picked by a `precedence` policy (`max-window-fraction`, `udaya`, `first`, `second`). Optional `nakshatra` filter, `avoidKarana: "vishti"` (Bhadra), `adhika: "prefer-adhika"` (leap-month policy), and a `fallback` (`previous-day` / `next-day` / `nearest-window`) | most lunar festivals |
+| `solar-ingress` | The Sun's sidereal ingress into a rāśi | Makar Saṅkrānti, Vishwakarma |
 | `moonrise` | Tithi live at moonrise | Karva Chauth, Sankaṣṭī |
 | `solar-arghya` | Tithi at sunset and the next sunrise | Chhath |
 | `derived` | An offset from another festival | Holi = Holikā + 1 |
+| `nakshatra-pervades` | The day a named nakṣatra is at sunrise while the Sun is in a given rāśi | Onam (Śravaṇa in Siṃha) |
+| `weekday-relative` | The latest weekday before another festival's date | Varalakṣmī (Friday before Śrāvaṇa Pūrṇimā) |
 
-`allRules(year)` returns the `CORE_RULES` plus the recurring **Ekādaśī**, **Sankaṣṭī
-Caturthī**, and **Chhath** observances generated for that year.
+`allRules(year)` returns `CORE_RULES` plus every recurring and regional observance
+generated for that year (see the generators listed under **API overview → 5**).
 
 ## Scope of validation
 
@@ -213,14 +223,40 @@ npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
 ```
 
 Tests live in `test/` (~370 cases): per-module unit suites plus the Drik-Panchang
-conformance checks — `conformance.test.ts` (2026 New Delhi) and, for Calgary (the HSNA
-temple's city), three suites whose EXPECTED dates are transcribed from Drik Panchang's
-Calgary calendar (geoname-id 5913490): `conformance-calgary.test.ts` (24 core festivals),
-`conformance-calgary-vratas.test.ts` (Ekādaśī, Saṅkaṣṭī, Pūrṇimā, Amāvāsyā, minor
-Saṅkrāntis) and `conformance-calgary-oneoff.test.ts` (regional festivals & jayantis). All
-24 in-year Ekādaśīs and 23/24 core festivals match Drik Calgary exactly; the handful of
-±1 localisation edges and definitional differences are pinned and documented. The suites
-also assert the localisation invariant (every Calgary date within ±1 day of New Delhi).
+conformance checks — `conformance.test.ts` (2026 New Delhi) and **five Calgary suites**
+(the HSNA temple's city) whose EXPECTED dates are transcribed from Drik Panchang's Calgary
+calendar (geoname-id 5913490): `conformance-calgary.test.ts` (24 core festivals),
+`-vratas` (Ekādaśī, Saṅkaṣṭī, Pūrṇimā vrat & snāna, Amāvāsyā, minor Saṅkrāntis), `-oneoff`
+(HSNA regional festivals) and `-regional` (21 further festivals/jayantis incl. Onam &
+Varalakṣmī). All 24 core festivals and all 24 in-year Ekādaśīs match Drik Calgary exactly;
+the few remaining ±1 convention edges and definitional differences are pinned and
+documented. The suites also assert the **localisation invariant** — every Calgary date is
+within ±1 day of New Delhi — which is what catches a wrong convention (a single locale
+can't, since many conventions agree there).
+
+## Known convention edges
+
+Most differences from Drik Panchang are not errors — they are points where the tradition
+itself admits more than one reckoning, or where the engine intentionally follows HSNA. The
+ones to be aware of:
+
+- **Pūrṇimā / Amāvāsyā — vrat vs snāna.** `purnima-vrat-*` is the *moonrise* vrat day;
+  `purnima-snana-*` is the next-morning *snāna-dāna* day Drik lists as "X Purnima". At
+  far-western longitudes these are usually one civil day apart — both are correct, for
+  different observances.
+- **Gauṇa (Vaiṣṇava) Ekādaśī — not yet emitted.** When an Ekādaśī is Daśamī-viddha,
+  Vaiṣṇavas fast the next day ("Gauṇa"). The engine emits only the Smārta date; the
+  second-day reckoning is future work.
+- **Ganga Dussehra, Balram Jayanti — definitional, follow HSNA.** Ganga Dussehra uses the
+  adhika Jyeṣṭha when present (matching Drik); Balram Jayanti follows HSNA's Kṛṣṇa-Ṣaṣṭhī
+  rather than Drik's Śukla-Ṣaṣṭhī.
+- **Maha Navami (Durga) — Sandhi rule, +1 known diff.** Drik can place Navamī on the
+  Aṣṭamī-udaya day via the Sandhi-Pūjā convention, which the generic tithi grammar does
+  not express.
+- **Pinned ±1 edges:** Kārtika Pūrṇimā snāna, Sarva-Pitṛ Amāvāsyā, Mithuna Saṅkrānti,
+  Phulera Dooj, Hariyali Teej / Nag Panchami / Kansh Vadh (New Delhi). Each is a two-day
+  tithi straddling sunrise where the day-attribution convention is genuinely borderline;
+  the tests pin the produced date so any change is surfaced consciously.
 
 ## Tech stack
 
