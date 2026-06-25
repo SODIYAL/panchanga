@@ -536,7 +536,15 @@ export function bhadraSplit(interval: KaranaInterval): BhadraDetails {
  * All new-moon instants (elongation = 0°) whose UTC time falls within calendar
  * year `year` (UTC), in increasing order. Uses SearchMoonPhase(0).
  */
+// Memoized by year: newMoons(year) is pure and location-independent, yet it is
+// called once per tithi-bearing rule (~146× in a full computeFestivals). The
+// returned array is treated read-only by all callers; the cache makes every
+// call after the first O(1). (See also solarIngress below.)
+const _newMoonsByYear = new Map<number, Date[]>();
+
 export function newMoons(year: number): Date[] {
+  const cached = _newMoonsByYear.get(year);
+  if (cached) return cached;
   const out: Date[] = [];
   const yearEnd = Date.UTC(year + 1, 0, 1);
   // Start a little before Jan 1 so we catch a new moon early in January.
@@ -550,6 +558,7 @@ export function newMoons(year: number): Date[] {
     // Advance past this new moon to find the next.
     cursor = new Date(ms + SYNODIC_MONTH_DAYS * 86_400_000 * 0.5);
   }
+  _newMoonsByYear.set(year, out);
   return out;
 }
 
@@ -562,7 +571,13 @@ export function newMoons(year: number): Date[] {
  * monotonic, so each 30° boundary is crossed once per year. We scan month by
  * month for the rāśi change, then bisect.
  */
+// Memoized by (year, rashi): a 366-day sidereal scan re-run per solar rule.
+const _solarIngressByKey = new Map<number, Date>();
+
 export function solarIngress(year: number, rashi: number): Date {
+  const key = year * 12 + rashi;
+  const cached = _solarIngressByKey.get(key);
+  if (cached) return cached;
   const targetDeg = normalize360(rashi * 30);
   const sunSid = (ms: number): number => siderealLongitude(new Date(ms), Body.Sun);
 
@@ -577,7 +592,9 @@ export function solarIngress(year: number, rashi: number): Date {
     const r = siderealSunRashi(new Date(ms));
     if (r !== prevRashi && r === rashi) {
       // Crossing into `rashi` lies in (prevMs, ms]. Bisect the 30° boundary.
-      return bisectLongitudeCrossing(sunSid, targetDeg, prevMs, ms);
+      const result = bisectLongitudeCrossing(sunSid, targetDeg, prevMs, ms);
+      _solarIngressByKey.set(key, result);
+      return result;
     }
     prevMs = ms;
     prevRashi = r;
@@ -671,11 +688,26 @@ function sankrantisInLunation(nmStartMs: number, nmEndMs: number): number[] {
  *     name; in the śukla pakṣa it equals the amānta name. (Adhika/Nija prefix
  *     carries through unchanged.)
  */
+// Memoized by (instant, system): lunarMonth is pure and is queried ~2000× per
+// computeFestivals (once per lunation per tithi rule), almost all for the same
+// ~14 lunations. The label depends only on which lunation+pakṣa the instant
+// falls in, so identical instants recur heavily across rules.
+const _lunarMonthCache = new Map<string, LunarMonth>();
+
 export function lunarMonth(
   at: FlexibleDateTime,
   options: { system?: MonthSystem } = {},
 ): LunarMonth {
   const system = options.system ?? "amanta";
+  const key = `${MakeTime(at).date.getTime()}:${system}`;
+  const cached = _lunarMonthCache.get(key);
+  if (cached) return cached;
+  const result = lunarMonthUncached(at, system);
+  if (_lunarMonthCache.size < 50_000) _lunarMonthCache.set(key, result); // bound memory
+  return result;
+}
+
+function lunarMonthUncached(at: FlexibleDateTime, system: MonthSystem): LunarMonth {
   const t = MakeTime(at);
   const atMs = t.date.getTime();
 
