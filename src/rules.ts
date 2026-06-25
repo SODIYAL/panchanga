@@ -884,6 +884,74 @@ export function sankrantiRules(year: number): FestivalRule[] {
   }));
 }
 
+/**
+ * One-off regional festivals & jayantis on the HSNA calendar. Most are plain
+ * udaya-tithi observances (the tithi present at sunrise); the full-moon
+ * jayantis use moonrise-vyāpti; Lohri and the Navrātri Pāraṇā are offsets from
+ * another festival. Validated against HSNA 2026 (test/hsna-oneoff.test.ts).
+ */
+export function oneOffFestivalRules(year: number): FestivalRule[] {
+  // udaya-tithi at sunrise
+  const T = (
+    id: string,
+    displayName: string,
+    month: string,
+    paksha: "shukla" | "krishna",
+    tithi: number,
+  ): FestivalRule => ({
+    id,
+    displayName,
+    month: { purnimanta: month },
+    category: "lunar-tithi",
+    extended: true,
+    observance: { kind: "tithi-pervades", paksha, tithi, window: "sunrise", precedence: "udaya" },
+  });
+  // full-moon (moonrise-vyāpti)
+  const P = (id: string, displayName: string, month: string): FestivalRule => ({
+    id,
+    displayName,
+    month: { purnimanta: month },
+    category: "moonrise",
+    extended: true,
+    observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
+  });
+  // offset from another rule
+  const D = (id: string, displayName: string, from: string, offsetDays: number): FestivalRule => ({
+    id,
+    displayName,
+    month: { purnimanta: "" },
+    category: "derived",
+    extended: true,
+    observance: { kind: "derived", from, offsetDays },
+  });
+  void year;
+  return [
+    D("lohri", "Lohri", "makar-sankranti", -1),
+    T("phulera-dooj", "Phulera Dhooj", "Phalguna", "shukla", 2),
+    T("ugadi-gudi-padwa", "Chaitra Navratri / Ugadi / Gudi Padwa", "Chaitra", "shukla", 1),
+    D("chaitra-navratri-parana", "Chaitra Navratri Parana", "rama-navami", 1),
+    P("koorm-jayanti", "Koorm Jayanti", "Vaishakha"),
+    T("narad-jayanti", "Narad Jayanti", "Jyeshtha", "krishna", 1),
+    // In 2026 Ganga Dussehra falls in the Adhika Jyeshtha lunation (HSNA 25 May).
+    T("ganga-dussehra", "Ganga Dussehra", "Adhika Jyeshtha", "shukla", 10),
+    T("jagannath-rath-yatra", "Jagannath Rath Yatra", "Ashadha", "shukla", 2),
+    T("hariyali-teej", "Hariyali Teej", "Shravana", "shukla", 3),
+    T("nag-panchami", "Nag Panchami", "Shravana", "shukla", 5),
+    T("kajari-teej", "Kajari Teej", "Bhadrapada", "krishna", 3),
+    T("balram-jayanti", "Balram Jayanti", "Bhadrapada", "krishna", 6),
+    T("hartalika-teej", "Hartalika Teej", "Bhadrapada", "shukla", 3),
+    T("rishi-panchami", "Rishi Panchami", "Bhadrapada", "shukla", 5),
+    T("anant-chaturdashi", "Anant Chaturdashi", "Bhadrapada", "shukla", 14),
+    P("pitru-paksha-begins", "Pitru Paksha Begins (Bhadrapada Purnima)", "Bhadrapada"),
+    T("kalparambha", "Kalparambha", "Ashwina", "shukla", 6),
+    T("navpatrika-puja", "Navpatrika Puja", "Ashwina", "shukla", 7),
+    T("ahoi-ashtami", "Ahoi Ashtami", "Kartika", "krishna", 8),
+    T("kansh-vadh", "Kansh Vadh", "Kartika", "shukla", 10),
+    T("tulsi-vivah", "Tulsi Vivah", "Kartika", "shukla", 12),
+    P("dattatreya-jayanti", "Dattatreya Jayanti", "Margashirsha"),
+  ];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Public API — allRules(year)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -911,6 +979,7 @@ export function allRules(year: number): FestivalRule[] {
     ...purnimaVratRules(year),
     ...amavasyaRules(year),
     ...sankrantiRules(year),
+    ...oneOffFestivalRules(year),
     CHHATH_RULE,
   ];
 }
