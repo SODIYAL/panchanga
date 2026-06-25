@@ -99,4 +99,21 @@ describe("HSNA 2026 recurring-vrata conformance", () => {
     }
     expect(hit / total).toBeGreaterThanOrEqual(0.85);
   });
+
+  // Pin the exact number of dates each category produces — membership checks
+  // alone can't catch an engine that over-produces spurious dates or silently
+  // drops a rule to empty. (= the rules' non-empty results; extras over the
+  // HSNA list are the adhika-month entries and the ±1 neighbours of diffs.)
+  it("produces exactly the expected count per category (no over/under-production)", () => {
+    const PRODUCED: Record<string, number> = {
+      "sankranti-": 10,
+      "masik-shivaratri-": 13,
+      "pradosh-": 25,
+      "purnima-vrat-": 13,
+      "amavasya-": 13,
+    };
+    for (const c of Object.values(CATEGORIES)) {
+      expect(producedDates(c.prefix).size).toBe(PRODUCED[c.prefix]);
+    }
+  });
 });
