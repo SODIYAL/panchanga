@@ -1,9 +1,32 @@
 {
   "name": "panchanga",
   "version": "0.1.0",
-  "description": "Drik Panchanga (Smārta, pūrṇimānta) engine for HSNA — computes tithi, vara, nakshatra, yoga, karana from astronomical first principles.",
+  "description": "Drik Panchanga (Smārta, pūrṇimānta) engine for HSNA — computes tithi, vara, nakshatra, yoga, karana, festivals and eclipses from astronomical first principles.",
   "license": "MIT",
+  "author": "Hindu Society of North America",
+  "homepage": "https://github.com/SODIYAL/panchanga#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SODIYAL/panchanga.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SODIYAL/panchanga/issues"
+  },
+  "keywords": [
+    "panchang",
+    "panchanga",
+    "hindu-calendar",
+    "tithi",
+    "nakshatra",
+    "vedic",
+    "jyotish",
+    "drik-panchang",
+    "festivals",
+    "ayanamsha",
+    "ephemeris"
+  ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,10 +38,14 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
     "astronomy-engine": "^2"

@@ -1,0 +1,39 @@
+name: Publish to npm
+
+# Publishes the package whenever you create a GitHub Release. The version that
+# ships is whatever is in package.json — so bump it (e.g. `0.1.0` → `0.1.1`) and
+# commit that before creating the release. npm rejects a re-publish of an
+# existing version, which is the natural guard against duplicate releases.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance (supply-chain attestation)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org" # writes the auth .npmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & test
+        run: |
+          npm run build
+          npm test
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
