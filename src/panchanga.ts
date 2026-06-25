@@ -29,6 +29,7 @@ import {
 import {
   startOfLocalDayUTC,
   localDayString,
+  validateLocation,
   riseSet,
   sunset,
   moonrise,
@@ -105,6 +106,7 @@ export interface DailyPanchanga {
  * still yields a pañcāṅga, while `sunrise`/`sunset`/`moonrise` report `null`.
  */
 export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
+  validateLocation(loc);
   const dateStr = localDayString(date, loc.timeZone);
   const dayStart = startOfLocalDayUTC(date, loc.timeZone);
 

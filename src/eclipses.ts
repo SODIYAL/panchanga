@@ -31,7 +31,7 @@ import {
   EclipseKind,
 } from "astronomy-engine";
 
-import type { GeoLocation } from "./time.js";
+import { validateLocation, type GeoLocation } from "./time.js";
 
 const MIN_MS = 60_000;
 const HOUR_MS = 3_600_000;
@@ -77,6 +77,7 @@ function altitude(body: Body, when: Date, loc: GeoLocation): number {
 
 /** All lunar eclipses whose peak falls in calendar `year` (UTC). */
 export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
+  if (loc) validateLocation(loc);
   const out: LunarEclipse[] = [];
   const yearStart = Date.UTC(year, 0, 1);
   const yearEnd = Date.UTC(year + 1, 0, 1);
@@ -110,6 +111,7 @@ export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
 
 /** All solar eclipses whose greatest-eclipse instant falls in calendar `year`. */
 export function solarEclipses(year: number, loc?: GeoLocation): SolarEclipse[] {
+  if (loc) validateLocation(loc);
   const out: SolarEclipse[] = [];
   const yearStart = Date.UTC(year, 0, 1);
   const yearEnd = Date.UTC(year + 1, 0, 1);

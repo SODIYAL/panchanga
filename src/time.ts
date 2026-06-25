@@ -45,6 +45,36 @@ export interface GeoLocation {
   timeZone: string;
 }
 
+/**
+ * Validate a `GeoLocation` at the public boundary, throwing a clear, typed
+ * error instead of letting bad input surface as an opaque astronomy-engine /
+ * Intl stack trace deep inside the computation.
+ */
+export function validateLocation(loc: GeoLocation): void {
+  if (!loc || typeof loc !== "object") {
+    throw new TypeError("location is required (a GeoLocation object)");
+  }
+  const { latitude, longitude, timeZone, elevationMeters } = loc;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    throw new RangeError(`invalid latitude: ${latitude} (expected a number in -90..90)`);
+  }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new RangeError(`invalid longitude: ${longitude} (expected a number in -180..180)`);
+  }
+  if (elevationMeters !== undefined && !Number.isFinite(elevationMeters)) {
+    throw new RangeError(`invalid elevationMeters: ${elevationMeters}`);
+  }
+  if (typeof timeZone !== "string" || timeZone.length === 0) {
+    throw new TypeError(`invalid timeZone: ${String(timeZone)} (expected an IANA id)`);
+  }
+  try {
+    // Probe the IANA id; throws RangeError for an unknown zone.
+    new Intl.DateTimeFormat("en-US", { timeZone });
+  } catch {
+    throw new RangeError(`invalid IANA timeZone: '${timeZone}'`);
+  }
+}
+
 /** A time window with an inclusive start and exclusive end. */
 export interface TimeWindow {
   start: Date;

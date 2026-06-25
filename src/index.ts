@@ -13,6 +13,7 @@ export {
   localDayString,
   startOfLocalDayUTC,
   nextLocalDayStartUTC,
+  validateLocation,
   riseSet,
   moonrise,
   sunset,
