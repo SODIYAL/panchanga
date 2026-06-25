@@ -58,6 +58,9 @@ const KNOWN_DIFFS = new Set([
   "hariyali-teej",
   "nag-panchami",
   "kansh-vadh",
+  // Resolves in the nija Jyeṣṭha (24 Jun) so it is produced EVERY year; HSNA
+  // places it in the 2026 Adhika Jyeṣṭha (25 May) — a festival-specific choice.
+  "ganga-dussehra",
 ]);
 
 describe("HSNA 2026 one-off festival conformance", () => {

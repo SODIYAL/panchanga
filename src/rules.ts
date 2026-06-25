@@ -935,8 +935,12 @@ export function oneOffFestivalRules(year: number): FestivalRule[] {
     D("chaitra-navratri-parana", "Chaitra Navratri Parana", "rama-navami", 1),
     P("koorm-jayanti", "Koorm Jayanti", "Vaishakha"),
     T("narad-jayanti", "Narad Jayanti", "Jyeshtha", "krishna", 1),
-    // In 2026 Ganga Dussehra falls in the Adhika Jyeshtha lunation (HSNA 25 May).
-    T("ganga-dussehra", "Ganga Dussehra", "Adhika Jyeshtha", "shukla", 10),
+    // Ganga Dussehra — Jyeṣṭha Śukla Daśamī. Use the nija (regular) Jyeṣṭha so
+    // the festival resolves EVERY year; hardcoding the leap month made it vanish
+    // in non-adhika years. In 2026 HSNA places it in the Adhika Jyeṣṭha lunation
+    // (25 May) rather than the nija (24 Jun) — a festival-specific adhika choice
+    // left as a documented diff.
+    T("ganga-dussehra", "Ganga Dussehra", "Jyeshtha", "shukla", 10),
     T("jagannath-rath-yatra", "Jagannath Rath Yatra", "Ashadha", "shukla", 2),
     T("hariyali-teej", "Hariyali Teej", "Shravana", "shukla", 3),
     T("nag-panchami", "Nag Panchami", "Shravana", "shukla", 5),
