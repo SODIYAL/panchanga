@@ -122,6 +122,7 @@ export {
   pradoshRules,
   masikShivaratriRules,
   purnimaVratRules,
+  purnimaSnanaRules,
   amavasyaRules,
   sankrantiRules,
   oneOffFestivalRules,

@@ -92,7 +92,21 @@ const DRIK_CALGARY: Record<string, string> = {
   "sankranti-vrishchika": "2026-11-16",
   "sankranti-dhanu": "2026-12-15",
 
-  // ── Pūrṇimā (Drik snāna "X Purnima" dates) ──
+  // ── Pūrṇimā snāna-dāna — Drik's "X Purnima" (the next-morning snāna day) ──
+  "purnima-snana-pausha": "2026-01-02",
+  "purnima-snana-magha": "2026-02-01",
+  "purnima-snana-phalguna": "2026-03-02",
+  "purnima-snana-chaitra": "2026-04-01",
+  "purnima-snana-vaishakha": "2026-05-01",
+  "purnima-snana-jyeshtha": "2026-06-29",
+  "purnima-snana-ashadha": "2026-07-29",
+  "purnima-snana-shravana": "2026-08-27",
+  "purnima-snana-bhadrapada": "2026-09-26",
+  "purnima-snana-ashwina": "2026-10-25",
+  "purnima-snana-kartika": "2026-11-23",
+  "purnima-snana-margashirsha": "2026-12-23",
+
+  // ── Pūrṇimā Vrata (the moonrise VRAT day; one before the snāna for some) ──
   "purnima-vrat-pausha": "2026-01-02",
   "purnima-vrat-magha": "2026-02-01",
   "purnima-vrat-phalguna": "2026-03-02",
@@ -121,6 +135,10 @@ const KNOWN_DIFFS: Record<string, string> = {
   // Genuine ±1 day-attribution edges vs Drik Calgary.
   "sankranti-mithuna": "2026-06-15", // Drik 2026-06-14
   "amavasya-ashwina": "2026-10-10", // Drik 2026-10-09 (Sarva Pitṛ)
+  // Kārtika Pūrṇimā snāna: Pūrṇimā is present at the Nov 24 sunrise (udaya), but
+  // Drik observes the snāna on Nov 23 — a ±1 edge where the tithi ends in a thin
+  // sliver after sunrise. The other 11 months match Drik exactly.
+  "purnima-snana-kartika": "2026-11-24", // Drik 2026-11-23
 };
 
 // Previously two Masik Śivarātri had no Calgary date (the Kṛṣṇa Caturdaśī ends
