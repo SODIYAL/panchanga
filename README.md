@@ -155,9 +155,16 @@ at sunrise + sun/moon instants + month label + the day's Rāhu/Yama/Gulika/Abhij
 muhūrtas).
 
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
-(the pure selector), and the rule data `CORE_RULES`, `ekadashiRules(year)`,
-`sankashtiRules(year)`, `CHHATH_RULE`, `allRules(year)`. Grammar types: `Observance`,
-`FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`.
+(the pure selector), and the rule data: `CORE_RULES` plus the generators
+`ekadashiRules`, `sankashtiRules`, `pradoshRules`, `masikShivaratriRules`,
+`purnimaVratRules`, `amavasyaRules`, `sankrantiRules` (each `(year)`), `CHHATH_RULE`,
+and `allRules(year)`. Grammar types: `Observance`, `FestivalRule`, `FestivalResult`,
+`Kala`, `TithiRef`, `Paksha`.
+
+`allRules(year)` covers ~140 observances: the 24 major festivals, every Ekādaśī,
+Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata, Amāvāsyā, Chhath, and
+all 12 Sankrāntis — validated against the HSNA 2026 calendar (the residual cases are
+±1-day convention edges, pinned in the tests).
 
 ## The rule grammar
 

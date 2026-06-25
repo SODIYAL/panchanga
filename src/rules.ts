@@ -756,6 +756,135 @@ export const CHHATH_RULE: FestivalRule = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Recurring monthly vratas (§4c) — Pradoṣa, Masik Śivarātri, Pūrṇimā,
+// Amāvāsyā, and the minor (non-Makar/Mesha) Sankrāntis.
+//
+// The mechanism already exists (tithi-pervades / solar-ingress); these supply
+// the rule DATA. Each generator mirrors ekadashiRules: the 12 regular months
+// plus the Adhika Jyeshtha entries (present in 2026), which the evaluator
+// resolves to empty in non-adhika years.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const PAKSHAS = ["shukla", "krishna"] as const;
+const ADHIKA = "Adhika Jyeshtha";
+const ADHIKA_NOTE = "Adhika-month entry; resolves to empty with a diagnostic in non-adhika years.";
+
+/**
+ * Pradoṣa Vrata — Trayodaśī (13) pervading the pradoṣa (post-sunset) window, in
+ * both pakṣas of every month. The (S)/(K) suffix marks śukla/kṛṣṇa.
+ */
+export function pradoshRules(year: number): FestivalRule[] {
+  const out: FestivalRule[] = [];
+  const push = (month: string, paksha: "shukla" | "krishna", id: string, note?: string) =>
+    out.push({
+      id,
+      displayName: `Pradosh Vrat (${paksha === "shukla" ? "S" : "K"}, ${month})`,
+      month: { purnimanta: month },
+      category: "lunar-tithi",
+      extended: true,
+      ...(note ? { meta: { note } } : {}),
+      observance: { kind: "tithi-pervades", paksha, tithi: 13, window: "pradosha", precedence: "max-window-fraction" },
+    });
+  for (const month of PURNIMANTA_MONTHS) for (const p of PAKSHAS) push(month, p, `pradosh-${month.toLowerCase()}-${p}`);
+  push(ADHIKA, "shukla", "pradosh-adhika-jyeshtha-shukla", ADHIKA_NOTE);
+  push(ADHIKA, "krishna", "pradosh-adhika-jyeshtha-krishna", ADHIKA_NOTE);
+  void year;
+  return out;
+}
+
+/** Masik Śivarātri — Kṛṣṇa Caturdaśī (14) in the niśīta (midnight) window. */
+export function masikShivaratriRules(year: number): FestivalRule[] {
+  const out: FestivalRule[] = [];
+  const push = (month: string, id: string, note?: string) =>
+    out.push({
+      id,
+      displayName: `Masik Shivaratri (${month})`,
+      month: { purnimanta: month },
+      category: "lunar-tithi",
+      extended: true,
+      ...(note ? { meta: { note } } : {}),
+      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction" },
+    });
+  for (const month of PURNIMANTA_MONTHS) push(month, `masik-shivaratri-${month.toLowerCase()}`);
+  push(ADHIKA, "masik-shivaratri-adhika-jyeshtha", ADHIKA_NOTE);
+  void year;
+  return out;
+}
+
+/**
+ * Pūrṇimā Vrata — the full-moon day of every pūrṇimānta month. The vrata is kept
+ * on the day the full Moon is up during Pūrṇimā (moonrise-vyāpti), which is the
+ * day panchāṅgas list as "Purnima Vrat" (distinct from the next-morning
+ * snāna-dāna Pūrṇimā).
+ */
+export function purnimaVratRules(year: number): FestivalRule[] {
+  const out: FestivalRule[] = [];
+  const push = (month: string, id: string, note?: string) =>
+    out.push({
+      id,
+      displayName: `${month} Purnima Vrat`,
+      month: { purnimanta: month },
+      category: "moonrise",
+      extended: true,
+      ...(note ? { meta: { note } } : {}),
+      observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
+    });
+  for (const month of PURNIMANTA_MONTHS) push(month, `purnima-vrat-${month.toLowerCase()}`);
+  push(ADHIKA, "purnima-vrat-adhika-jyeshtha", ADHIKA_NOTE);
+  void year;
+  return out;
+}
+
+/** Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month. */
+export function amavasyaRules(year: number): FestivalRule[] {
+  const out: FestivalRule[] = [];
+  const push = (month: string, id: string, note?: string) =>
+    out.push({
+      id,
+      displayName: `${month} Amavasya`,
+      month: { purnimanta: month },
+      category: "lunar-tithi",
+      extended: true,
+      ...(note ? { meta: { note } } : {}),
+      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
+    });
+  for (const month of PURNIMANTA_MONTHS) push(month, `amavasya-${month.toLowerCase()}`);
+  push(ADHIKA, "amavasya-adhika-jyeshtha", ADHIKA_NOTE);
+  void year;
+  return out;
+}
+
+/**
+ * The ten minor Sankrāntis (the Sun's sidereal ingress into each rāśi), i.e.
+ * all twelve except Makara and Meṣa, which are CORE festivals. `punyaKala`
+ * follows Makar Sankranti's convention.
+ */
+export function sankrantiRules(year: number): FestivalRule[] {
+  // [displayName, id-suffix, rāśi index]; rāśi 0 = Mesha … 11 = Mīna.
+  const minor: ReadonlyArray<readonly [string, string, number]> = [
+    ["Kumbha Sankranti", "kumbha", 10],
+    ["Meena Sankranti", "meena", 11],
+    ["Vrishabha Sankranti", "vrishabha", 1],
+    ["Mithuna Sankranti", "mithuna", 2],
+    ["Karka Sankranti", "karka", 3],
+    ["Simha Sankranti", "simha", 4],
+    ["Kanya Sankranti", "kanya", 5],
+    ["Tula Sankranti", "tula", 6],
+    ["Vrishchika Sankranti", "vrishchika", 7],
+    ["Dhanu Sankranti", "dhanu", 8],
+  ];
+  void year;
+  return minor.map(([displayName, slug, rashi]) => ({
+    id: `sankranti-${slug}`,
+    displayName,
+    month: { purnimanta: "" }, // solar-ingress does not use the month label
+    category: "solar" as const,
+    extended: true,
+    observance: { kind: "solar-ingress" as const, rashi, punyaKala: "after-moment-to-sunset" as const },
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API — allRules(year)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -777,6 +906,11 @@ export function allRules(year: number): FestivalRule[] {
     ...CORE_RULES,
     ...ekadashiRules(year),
     ...sankashtiRules(year),
+    ...pradoshRules(year),
+    ...masikShivaratriRules(year),
+    ...purnimaVratRules(year),
+    ...amavasyaRules(year),
+    ...sankrantiRules(year),
     CHHATH_RULE,
   ];
 }

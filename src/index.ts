@@ -101,11 +101,16 @@ export {
   type ComputeOptions,
 } from "./festivals.js";
 
-// ── Per-festival rule data (§4 core + §4b extended generators) ──────────────
+// ── Per-festival rule data (§4 core + §4b/§4c extended generators) ──────────
 export {
   CORE_RULES,
   ekadashiRules,
   sankashtiRules,
+  pradoshRules,
+  masikShivaratriRules,
+  purnimaVratRules,
+  amavasyaRules,
+  sankrantiRules,
   CHHATH_RULE,
   allRules,
 } from "./rules.js";
