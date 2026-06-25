@@ -17,17 +17,23 @@
     <p class="sub">Drik Panchanga (Smārta, pūrṇimānta) — tithi, nakṣatra, festivals &amp; eclipses, as JSON.</p>
 
     <h2>Endpoints</h2>
-    <p>All are <code>GET</code>, return JSON, and accept a location as either a <code>place</code> preset or explicit <code>lat</code>, <code>lng</code> &amp; <code>tz</code>.</p>
+    <p>All are <code>GET</code>, return JSON (except the <code>.ics</code> feed), and accept a location as either a <code>place</code> slug or explicit <code>lat</code>, <code>lng</code> &amp; <code>tz</code>.</p>
     <ul>
-      <li><a href="/api/panchanga?place=calgary"><code>/api/panchanga?date=YYYY-MM-DD&amp;place=calgary</code></a> — the day's pañcāṅga</li>
-      <li><a href="/api/festivals?place=calgary"><code>/api/festivals?year=2026&amp;place=calgary</code></a> — the year's festivals</li>
-      <li><a href="/api/eclipses?place=calgary"><code>/api/eclipses?year=2026&amp;place=calgary</code></a> — grahaṇas (eclipses)</li>
-      <li><a href="/api"><code>/api</code></a> — machine-readable usage &amp; the list of place presets</li>
+      <li><a href="/api/panchanga?place=calgary-ab"><code>/api/panchanga?date=YYYY-MM-DD&amp;place=calgary-ab</code></a> — the day's pañcāṅga</li>
+      <li><a href="/api/festivals?place=calgary-ab"><code>/api/festivals?year=2026&amp;place=calgary-ab</code></a> — the year's festivals</li>
+      <li><a href="/api/eclipses?place=calgary-ab"><code>/api/eclipses?year=2026&amp;place=calgary-ab</code></a> — grahaṇas (eclipses)</li>
+      <li><a href="/api/calendar.ics?place=calgary-ab"><code>/api/calendar.ics?place=calgary-ab</code></a> — subscribable iCalendar feed (add it to Google/Apple Calendar)</li>
+      <li><a href="/api/places?q=austin"><code>/api/places?q=austin</code></a> — search the supported cities</li>
+      <li><a href="/api"><code>/api</code></a> — machine-readable usage &amp; example places</li>
     </ul>
 
+    <h2>Places</h2>
+    <p>Every <strong>US &amp; Canada city of 10,000+ people</strong> (~4,800) is a slug like <code>austin-tx</code> or <code>jersey-city-nj</code>. A bare name picks the largest match (<code>vancouver</code> → Vancouver, BC); <code>new-delhi</code>, <code>mumbai</code> &amp; <code>london</code> are kept too. Don't know the slug? Search <a href="/api/places?q=springfield"><code>/api/places?q=springfield</code></a>.</p>
+
     <h2>Examples</h2>
-    <pre>curl "https://YOUR-DEPLOYMENT/api/festivals?year=2026&amp;place=calgary"
-curl "https://YOUR-DEPLOYMENT/api/panchanga?date=2026-11-08&amp;lat=51.04&amp;lng=-114.07&amp;tz=America/Edmonton"</pre>
+    <pre>curl "https://panchanga-five.vercel.app/api/festivals?year=2026&amp;place=calgary-ab"
+curl "https://panchanga-five.vercel.app/api/places?q=springfield&amp;country=US"
+curl "https://panchanga-five.vercel.app/api/panchanga?date=2026-11-08&amp;lat=51.04&amp;lng=-114.07&amp;tz=America/Edmonton"</pre>
 
     <p>Source &amp; the underlying library: <a href="https://github.com/SODIYAL/panchanga">github.com/SODIYAL/panchanga</a> · <a href="https://www.npmjs.com/package/panchanga">npm</a></p>
   </body>

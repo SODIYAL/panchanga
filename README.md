@@ -152,7 +152,8 @@ GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
 GET /api/festivals?year=2026&place=calgary            → the year's festival dates
 GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
 GET /api/calendar.ics?place=calgary                  → subscribable iCalendar feed
-GET /api                                              → usage + the place presets
+GET /api/places?q=austin                             → search the supported cities
+GET /api                                              → usage + example places
 ```
 
 The **`.ics` feed** is the zero-code path for end users: add the URL to Google/Apple
@@ -160,11 +161,17 @@ Calendar once and the festivals appear (and stay current — the feed defaults t
 *current + next year* window). `?set=major` (default, the named festivals a temple shows),
 `?set=all` (every vrata too), or `?set=core` (the 24 §4 festivals).
 
-Location is either a `place` preset (`calgary`, `new-delhi`, `toronto`, …) or explicit
-`lat`, `lng` & `tz`:
+**Location** is a `place` slug or explicit `lat`, `lng` & `tz`. Every **US & Canada city
+of ≥10,000 people (~4,800 places)** is a slug — `calgary-ab`, `austin-tx`, `jersey-city-nj`
+— generated offline from GeoNames data with [`scripts/gen-places.mjs`](scripts/gen-places.mjs)
+(timezone resolved per-coordinate, so Arizona/Indiana edge cases are correct) into
+[`api/places.generated.ts`](api/places.generated.ts). A **bare city name** resolves to its
+largest bearer (`vancouver` → Vancouver, BC), and a few non-US/CA cities (`new-delhi`,
+`mumbai`, `london`) are kept as slugs. Don't know the slug? Hit `/api/places?q=<name>`.
 
 ```sh
-curl "https://<deployment>/api/festivals?year=2026&place=calgary"
+curl "https://<deployment>/api/festivals?year=2026&place=calgary-ab"
+curl "https://<deployment>/api/places?q=springfield&country=US"   # disambiguate by state
 curl "https://<deployment>/api/panchanga?date=2026-11-08&lat=51.04&lng=-114.07&tz=America/Edmonton"
 ```
 
