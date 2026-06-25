@@ -157,8 +157,8 @@ at sunrise + sun/moon instants + month label + the day's Rāhu/Yama/Gulika/Abhij
 muhūrtas).
 
 **4b. Grahaṇa (eclipses)** — `lunarEclipses(year, loc?)`, `solarEclipses(year, loc?)` →
-eclipse type, contact phases, local visibility, and sūtak. Types: `LunarEclipse`,
-`SolarEclipse`, `Phase`.
+eclipse type, contact phases (ISO-UTC `IsoWindow`s), local visibility, and sūtak.
+Types: `LunarEclipse`, `SolarEclipse`, `GrahanKind`.
 
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data: `CORE_RULES` plus the generators

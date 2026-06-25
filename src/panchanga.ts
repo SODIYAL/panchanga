@@ -36,6 +36,7 @@ import {
   dayMuhurtas,
   VARA_NAMES,
   type TimeWindow,
+  type IsoWindow,
 } from "./time.js";
 
 const DAY_MS = 86_400_000;
@@ -53,12 +54,6 @@ export interface RunningElement {
   name: string;
   /** ISO-UTC instant this element ends (gives way to the next). */
   endsAt: string;
-}
-
-/** A time window as ISO-UTC start/end instants. */
-export interface IsoWindow {
-  start: string;
-  end: string;
 }
 
 /** The weekday-governed day-part muhūrtas (ISO-UTC; null at polar latitudes). */

@@ -16,7 +16,8 @@ const NEW_DELHI: GeoLocation = { latitude: 28.6139, longitude: 77.209, timeZone:
 const LOS_ANGELES: GeoLocation = { latitude: 34.05, longitude: -118.24, timeZone: "America/Los_Angeles" };
 const MADRID: GeoLocation = { latitude: 40.42, longitude: -3.7, timeZone: "Europe/Madrid" };
 
-const day = (d: Date) => d.toISOString().slice(0, 10);
+const day = (s: string) => s.slice(0, 10);
+const ms = (s: string) => new Date(s).getTime();
 
 describe("lunarEclipses(2026)", () => {
   const eclipses = lunarEclipses(2026);
@@ -33,10 +34,10 @@ describe("lunarEclipses(2026)", () => {
     const total = eclipses[0]; // 3 Mar total
     expect(total.partial).not.toBeNull();
     expect(total.total).not.toBeNull();
-    expect(total.penumbral.start.getTime()).toBeLessThan(total.partial!.start.getTime());
-    expect(total.partial!.start.getTime()).toBeLessThan(total.total!.start.getTime());
-    expect(total.total!.end.getTime()).toBeLessThan(total.partial!.end.getTime());
-    expect(total.partial!.end.getTime()).toBeLessThan(total.penumbral.end.getTime());
+    expect(ms(total.penumbral.start)).toBeLessThan(ms(total.partial!.start));
+    expect(ms(total.partial!.start)).toBeLessThan(ms(total.total!.start));
+    expect(ms(total.total!.end)).toBeLessThan(ms(total.partial!.end));
+    expect(ms(total.partial!.end)).toBeLessThan(ms(total.penumbral.end));
     // a partial eclipse has no totality
     expect(eclipses[1].total).toBeNull();
   });
@@ -52,9 +53,9 @@ describe("lunarEclipses(2026)", () => {
     expect(total.visible).toBe(true);
     expect(total.sutak).not.toBeNull();
     // sūtak starts 9h before the umbral (partial) first contact and ends at mokṣa
-    const expectStart = total.partial!.start.getTime() - 9 * 3_600_000;
-    expect(total.sutak!.start.getTime()).toBe(expectStart);
-    expect(total.sutak!.end.getTime()).toBe(total.partial!.end.getTime());
+    const expectStart = ms(total.partial!.start) - 9 * 3_600_000;
+    expect(ms(total.sutak!.start)).toBe(expectStart);
+    expect(ms(total.sutak!.end)).toBe(ms(total.partial!.end));
   });
 
   it("does NOT emit sūtak for a purely penumbral eclipse, even when visible", () => {
@@ -87,7 +88,7 @@ describe("solarEclipses(2026)", () => {
     expect(total.visible).toBe(true);
     expect(total.local).not.toBeNull();
     expect(total.local!.obscuration).toBeGreaterThan(0.9);
-    expect(total.sutak!.start.getTime()).toBe(total.local!.partialStart.getTime() - 12 * 3_600_000);
-    expect(total.sutak!.end.getTime()).toBe(total.local!.partialEnd.getTime());
+    expect(ms(total.sutak!.start)).toBe(ms(total.local!.partialStart) - 12 * 3_600_000);
+    expect(ms(total.sutak!.end)).toBe(ms(total.local!.partialEnd));
   });
 });

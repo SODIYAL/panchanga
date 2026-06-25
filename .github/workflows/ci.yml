@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: CI only needs to read the repo.
+permissions:
+  contents: read
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -18,11 +22,11 @@ jobs:
           # Vitest 4 requires Node ^22.12 || ^24 || >=26; 22.x resolves to a
           # compatible release.
           node-version: "22"
+          cache: npm
 
-      # No committed lockfile (library with loose ranges), so `npm install`
-      # rather than `npm ci`.
+      # Reproducible, integrity-checked install from the committed lockfile.
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Type-check & build
         run: npm run build
