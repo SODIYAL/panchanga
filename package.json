@@ -42,7 +42,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.api.json",
+    "build": "tsc -p tsconfig.json && node scripts/build-api-engine.mjs && tsc -p tsconfig.api.json",
     "prepare": "tsc -p tsconfig.json",
     "test": "vitest run",
     "prepublishOnly": "npm test && npm run build"
@@ -51,6 +51,7 @@
     "astronomy-engine": "^2"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

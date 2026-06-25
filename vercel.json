@@ -5,7 +5,7 @@
   "cleanUrls": true,
   "functions": {
     "api/*.ts": {
-      "includeFiles": "{dist,node_modules/astronomy-engine}/**"
+      "includeFiles": "api-engine/**"
     }
   },
   "rewrites": [
