@@ -29,7 +29,9 @@ remote API.
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
   pervasion-day selector that resolves each festival to a civil date and **never silently
   drops**: every miss is explained in `diagnostics`.
-- **Validated** against Drik Panchang fixtures (2026, New Delhi).
+- **Validated** against Drik Panchang fixtures (2026) for **New Delhi and Calgary** —
+  the latter confirming the engine localises festival dates correctly (Calgary's
+  sunrise/moonrise-driven −1-day shifts match Drik Panchang's Calgary calendar).
 
 ## Requirements
 
@@ -205,8 +207,11 @@ npm test         # vitest run — unit suites + Drik-Panchang conformance
 npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
 ```
 
-Tests live in `test/` (~150 cases): per-module unit suites plus `conformance.test.ts`,
-which checks the 2026 New Delhi festival set against Drik Panchang fixtures.
+Tests live in `test/` (~240 cases): per-module unit suites plus the Drik-Panchang
+conformance checks — `conformance.test.ts` (2026 New Delhi) and
+`conformance-calgary.test.ts` (2026 Calgary, the HSNA temple's city), which anchors the
+engine to Drik Panchang's Calgary calendar and asserts the localisation invariant
+(every Calgary date within ±1 day of New Delhi).
 
 ## Tech stack
 
