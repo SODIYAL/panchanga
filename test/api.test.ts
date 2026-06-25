@@ -35,6 +35,57 @@ describe("api /panchanga", () => {
     expect(r.status).toBe(200);
     expect((r.body as any).requestedDate).toBe("2026-06-25");
   });
+
+  it("resolves a state-qualified slug, exposing admin & country", () => {
+    const r = call("/api/panchanga", { place: "austin-tx", date: "2026-06-25" });
+    expect(r.status).toBe(200);
+    const loc = (r.body as any).location;
+    expect(loc.name).toBe("Austin");
+    expect(loc.admin).toBe("TX");
+    expect(loc.country).toBe("US");
+    expect(loc.timeZone).toBe("America/Chicago");
+  });
+
+  it("resolves a bare city name to its most-populous bearer", () => {
+    // Vancouver, BC (~600k) beats Vancouver, WA; Austin → Austin, TX.
+    expect((call("/api/panchanga", { place: "vancouver" }).body as any).location.admin).toBe("BC");
+    expect((call("/api/panchanga", { place: "austin" }).body as any).location.admin).toBe("TX");
+  });
+
+  it("keeps the legacy place slugs working", () => {
+    for (const place of ["calgary", "toronto", "edmonton", "new-york", "london", "mumbai", "new-delhi"]) {
+      expect(call("/api/panchanga", { place }).status).toBe(200);
+    }
+    // new-york (alias) and london (non-US/CA extra) resolve to the expected cities
+    expect((call("/api/panchanga", { place: "new-york" }).body as any).location.name).toBe("New York City");
+    expect((call("/api/panchanga", { place: "london" }).body as any).location.timeZone).toBe("Europe/London");
+  });
+});
+
+describe("api /places (search)", () => {
+  it("finds cities by substring, ranked by population, with a total", () => {
+    const r = call("/api/places", { q: "spring" });
+    expect(r.status).toBe(200);
+    const body = r.body as any;
+    expect(body.count).toBeGreaterThan(0);
+    expect(body.total).toBeGreaterThanOrEqual(body.count);
+    expect(body.places.every((p: any) => /spring/i.test(p.name) || p.slug.includes("spring"))).toBe(true);
+    // population-sorted (descending)
+    const pops = body.places.map((p: any) => p.population);
+    expect([...pops].sort((a: number, b: number) => b - a)).toEqual(pops);
+  });
+
+  it("filters by country and honours limit", () => {
+    const r = call("/api/places", { q: "a", country: "CA", limit: "5" });
+    const body = r.body as any;
+    expect(body.places).toHaveLength(5);
+    expect(body.places.every((p: any) => p.country === "CA")).toBe(true);
+  });
+
+  it("returns the most-populous cities when q is empty", () => {
+    const body = call("/api/places", {}).body as any;
+    expect(body.places[0].slug).toBe("new-york-city-ny");
+  });
 });
 
 describe("api /festivals", () => {

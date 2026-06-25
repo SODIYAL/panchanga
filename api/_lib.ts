@@ -30,18 +30,67 @@ import {
   lunarEclipses,
   solarEclipses,
 } from "../api-engine/index.js";
+import { PLACES } from "./places.generated.js";
 
-/** Named location presets so callers can pass `?place=calgary` instead of coords. */
-const PRESETS: Record<string, GeoLocation & { name: string }> = {
-  calgary: { name: "Calgary", latitude: 51.0447, longitude: -114.0719, timeZone: "America/Edmonton" },
-  "new-delhi": { name: "New Delhi", latitude: 28.6139, longitude: 77.209, timeZone: "Asia/Kolkata" },
-  toronto: { name: "Toronto", latitude: 43.6532, longitude: -79.3832, timeZone: "America/Toronto" },
-  vancouver: { name: "Vancouver", latitude: 49.2827, longitude: -123.1207, timeZone: "America/Vancouver" },
-  edmonton: { name: "Edmonton", latitude: 53.5461, longitude: -113.4938, timeZone: "America/Edmonton" },
-  "new-york": { name: "New York", latitude: 40.7128, longitude: -74.006, timeZone: "America/New_York" },
-  london: { name: "London", latitude: 51.5074, longitude: -0.1278, timeZone: "Europe/London" },
-  mumbai: { name: "Mumbai", latitude: 19.076, longitude: 72.8777, timeZone: "Asia/Kolkata" },
+/** A resolvable named location. The bulk come from places.generated.ts (every
+ *  US + Canada city ≥10k people); a handful of non-US/CA marquee cities are
+ *  added below. */
+type Place = GeoLocation & {
+  slug: string;
+  name: string;
+  admin?: string; // state (USPS) / province (CA) code; absent for the extras
+  country?: string;
+  population?: number;
 };
+
+/** Non-US/CA cities kept reachable by slug. Their slugs take precedence over
+ *  the generated list and over bare-name lookups, so `?place=london` stays
+ *  London, UK (not the larger-by-our-data London, Ontario). */
+const EXTRA_PLACES: Place[] = [
+  { slug: "new-delhi", name: "New Delhi", latitude: 28.6139, longitude: 77.209, timeZone: "Asia/Kolkata" },
+  { slug: "mumbai", name: "Mumbai", latitude: 19.076, longitude: 72.8777, timeZone: "Asia/Kolkata" },
+  { slug: "london", name: "London", latitude: 51.5074, longitude: -0.1278, timeZone: "Europe/London" },
+];
+
+/** Short, friendly aliases → canonical slug (for names the dataset spells out). */
+const ALIASES: Record<string, string> = {
+  "new-york": "new-york-city-ny",
+  nyc: "new-york-city-ny",
+  la: "los-angeles-ca",
+  sf: "san-francisco-ca",
+  dc: "washington-dc",
+};
+
+/** US/CA cities first (already sorted by descending population), extras last. */
+const ALL_PLACES: readonly Place[] = [...PLACES, ...EXTRA_PLACES];
+
+/** Normalise a user-supplied place token the same way slugs are built:
+ *  lowercase, strip diacritics, collapse non-alphanumerics to single hyphens. */
+function normalizeKey(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/['’.]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+const BY_SLUG = new Map<string, Place>(ALL_PLACES.map((p) => [p.slug, p]));
+// Bare city name → its most-populous bearer. PLACES is population-sorted, so the
+// first time a name is seen it is the largest (e.g. "vancouver" → Vancouver, BC).
+const BY_NAME = new Map<string, Place>();
+for (const p of ALL_PLACES) {
+  const key = normalizeKey(p.name);
+  if (!BY_NAME.has(key)) BY_NAME.set(key, p);
+}
+
+/** Resolve a `?place=` token: exact slug → alias → bare city name (largest). */
+function lookupPlace(raw: string): Place | undefined {
+  const key = normalizeKey(raw);
+  const aliased = ALIASES[key];
+  return BY_SLUG.get(key) ?? (aliased ? BY_SLUG.get(aliased) : undefined) ?? BY_NAME.get(key);
+}
 
 export type Query = Record<string, string | string[] | undefined>;
 
@@ -67,18 +116,25 @@ function first(q: Query, key: string): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+interface ResolvedLocation extends GeoLocation {
+  name?: string;
+  admin?: string;
+  country?: string;
+}
+
 /** Resolve the location from `?place=` or `?lat=&lng=&tz=`. */
-function resolveLocation(q: Query): GeoLocation & { name?: string } {
+function resolveLocation(q: Query): ResolvedLocation {
   const place = first(q, "place");
   if (place) {
-    const preset = PRESETS[place.toLowerCase()];
-    if (!preset) {
+    const p = lookupPlace(place);
+    if (!p) {
       throw new ApiError(
         400,
-        `unknown place "${place}". Known places: ${Object.keys(PRESETS).join(", ")} — or pass lat, lng & tz.`,
+        `unknown place "${place}". Use a slug like "calgary-ab" or "austin-tx", ` +
+          `search GET /api/places?q=${encodeURIComponent(place)}, or pass lat, lng & tz.`,
       );
     }
-    return preset;
+    return { name: p.name, admin: p.admin, country: p.country, latitude: p.latitude, longitude: p.longitude, timeZone: p.timeZone };
   }
   const lat = first(q, "lat");
   const lng = first(q, "lng");
@@ -121,12 +177,15 @@ const USAGE = {
   name: "panchanga HTTP API",
   description: "Drik Panchanga (Smārta, pūrṇimānta) — tithi, nakṣatra, festivals & eclipses.",
   endpoints: {
-    "GET /api/panchanga": "?date=YYYY-MM-DD (default today) & (place=<name> | lat&lng&tz)",
-    "GET /api/festivals": "?year=YYYY (default current) & (place=<name> | lat&lng&tz)",
-    "GET /api/eclipses": "?year=YYYY (default current) & (place=<name> | lat&lng&tz)",
+    "GET /api/panchanga": "?date=YYYY-MM-DD (default today) & (place=<slug> | lat&lng&tz)",
+    "GET /api/festivals": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
+    "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
     "GET /api/calendar.ics": "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) — subscribable iCalendar feed",
+    "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
   },
-  places: Object.keys(PRESETS),
+  places: ["calgary", "new-delhi", "toronto", "vancouver", "edmonton", "new-york", "mumbai", "london"],
+  placesCount: ALL_PLACES.length,
+  placeSearch: "every US & Canada city ≥10k people is a slug (e.g. austin-tx); discover them via GET /api/places?q=",
   source: "https://github.com/SODIYAL/panchanga",
 };
 
@@ -244,9 +303,36 @@ export function handle(path: string, query: Query, now: { today: string; year: n
           }
         }
         events.sort((a, b) => a.date.localeCompare(b.date));
-        const place = (loc as { name?: string }).name ?? `${loc.latitude},${loc.longitude}`;
-        const ics = buildIcs(`HSNA Festivals — ${place}`, events);
+        const label = loc.name
+          ? loc.admin
+            ? `${loc.name}, ${loc.admin}`
+            : loc.name
+          : `${loc.latitude},${loc.longitude}`;
+        const ics = buildIcs(`HSNA Festivals — ${label}`, events);
         return { status: 200, body: ics, contentType: "text/calendar; charset=utf-8", cacheSeconds: 86_400 };
+      }
+      case "places": {
+        const q = (first(query, "q") ?? "").trim();
+        const key = normalizeKey(q);
+        const country = (first(query, "country") ?? "").toUpperCase();
+        const rawLimit = Number(first(query, "limit"));
+        const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 25;
+        const matches = ALL_PLACES.filter((p) => {
+          if ((country === "US" || country === "CA") && p.country !== country) return false;
+          if (!key) return true;
+          return p.slug.includes(key) || normalizeKey(p.name).includes(key);
+        });
+        const places = matches.slice(0, limit).map((p) => ({
+          slug: p.slug,
+          name: p.name,
+          admin: p.admin,
+          country: p.country,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          timeZone: p.timeZone,
+          population: p.population,
+        }));
+        return { status: 200, body: { query: q, total: matches.length, count: places.length, places }, cacheSeconds: 86_400 };
       }
       case "api":
       case "":
