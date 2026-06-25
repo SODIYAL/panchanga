@@ -165,7 +165,8 @@ Types: `LunarEclipse`, `SolarEclipse`, `GrahanKind`.
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data: `CORE_RULES` plus the generators
 `ekadashiRules`, `sankashtiRules`, `pradoshRules`, `masikShivaratriRules`,
-`purnimaVratRules`, `purnimaSnanaRules`, `amavasyaRules`, `sankrantiRules`, `oneOffFestivalRules` (each
+`purnimaVratRules`, `purnimaSnanaRules`, `amavasyaRules`, `sankrantiRules`, `oneOffFestivalRules`,
+`regionalFestivalRules` (each
 `(year)`), `CHHATH_RULE`, and `allRules(year)`. Grammar types: `Observance`,
 `FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`.
 
@@ -207,7 +208,7 @@ npm test         # vitest run — unit suites + Drik-Panchang conformance
 npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
 ```
 
-Tests live in `test/` (~350 cases): per-module unit suites plus the Drik-Panchang
+Tests live in `test/` (~370 cases): per-module unit suites plus the Drik-Panchang
 conformance checks — `conformance.test.ts` (2026 New Delhi) and, for Calgary (the HSNA
 temple's city), three suites whose EXPECTED dates are transcribed from Drik Panchang's
 Calgary calendar (geoname-id 5913490): `conformance-calgary.test.ts` (24 core festivals),

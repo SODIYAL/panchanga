@@ -126,6 +126,7 @@ export {
   amavasyaRules,
   sankrantiRules,
   oneOffFestivalRules,
+  regionalFestivalRules,
   CHHATH_RULE,
   allRules,
 } from "./rules.js";
