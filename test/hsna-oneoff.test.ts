@@ -62,7 +62,8 @@ const PINNED_DIFFS: Record<string, string> = {
   "hariyali-teej": "2026-08-15", //  HSNA 2026-08-14
   "nag-panchami": "2026-08-17", //   HSNA 2026-08-16 (morning rite, no later kāla to anchor)
   "kansh-vadh": "2026-11-20", //     HSNA 2026-11-19
-  "ganga-dussehra": "2026-06-24", // HSNA 2026-05-25 (nija Jyeṣṭha vs HSNA's adhika placement)
+  // ganga-dussehra now matches HSNA exactly (2026-05-25) via the
+  // adhika:"prefer-adhika" policy — observed in the Adhika Jyeṣṭha lunation.
 };
 
 describe("HSNA 2026 one-off festival conformance", () => {
@@ -76,7 +77,7 @@ describe("HSNA 2026 one-off festival conformance", () => {
     });
   }
 
-  it("covers all 22 one-off festivals (17 exact + 5 pinned ±1 diffs)", () => {
+  it("covers all 22 one-off festivals (18 exact + 4 pinned ±1 diffs)", () => {
     const exact = Object.entries(EXPECTED).filter(([id, d]) => dateOf(id) === d).length;
     expect(exact).toBe(Object.keys(EXPECTED).length - Object.keys(PINNED_DIFFS).length);
   });

@@ -7,11 +7,11 @@
  * notably Hariyali Teej, Nag Panchami and Kansh Vadh, which are ±1 *pinned*
  * diffs at New Delhi but land on Drik's Calgary date once localised.
  *
- * Six are pinned with their cause:
- *  • ganga-dussehra, balram-jayanti — DEFINITIONAL (location-independent):
- *    Drik places Ganga Dussehra in Adhika Jyeṣṭha and Balarāma Jayantī on
- *    Bhādrapada Śukla 6, whereas these rules follow the nija month / HSNA's
- *    Kṛṣṇa 6. Same difference exists at New Delhi.
+ * Five are pinned with their cause:
+ *  • balram-jayanti — DEFINITIONAL (location-independent): Drik observes
+ *    Balarāma Jayantī on Bhādrapada Śukla 6, whereas the rule follows HSNA's
+ *    Kṛṣṇa 6. Same difference exists at New Delhi. (Ganga Dussehra, formerly
+ *    here, now matches Drik via the adhika:"prefer-adhika" policy.)
  *  • kajari-teej, pitru-paksha-begins, koorm-jayanti, chhath-puja — genuine
  *    Calgary −1 localisation edges.
  */
@@ -53,7 +53,6 @@ const DRIK_CALGARY: Record<string, string> = {
 
 const KNOWN_DIFFS: Record<string, string> = {
   // DEFINITIONAL (same at New Delhi) — not a localisation effect.
-  "ganga-dussehra": "2026-06-23", // rule uses nija Jyeṣṭha; Drik uses Adhika (05-25)
   "balram-jayanti": "2026-09-02", // rule/HSNA Kṛṣṇa 6; Drik Śukla 6 (09-16)
   // Genuine Calgary −1 localisation edges.
   "kajari-teej": "2026-08-29", // Drik 2026-08-30
@@ -75,9 +74,9 @@ describe("Calgary one-off conformance — 2026 vs Drik Panchang (geoname-id 5913
     });
   }
 
-  it("matches Drik Panchang Calgary on the majority of one-offs (12/18 exact)", () => {
+  it("matches Drik Panchang Calgary on the majority of one-offs (13/18 exact)", () => {
     const ids = Object.keys(DRIK_CALGARY);
     const exact = ids.filter((id) => engine.get(id) === DRIK_CALGARY[id]).length;
-    expect(exact).toBe(ids.length - Object.keys(KNOWN_DIFFS).length); // 12 / 18
+    expect(exact).toBe(ids.length - Object.keys(KNOWN_DIFFS).length); // 13 / 18
   });
 });

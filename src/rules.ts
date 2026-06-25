@@ -869,6 +869,26 @@ export function purnimaVratRules(year: number): FestivalRule[] {
   }]);
 }
 
+/**
+ * Pūrṇimā snāna-dāna — the full-moon day Drik lists as "X Purnima" (distinct
+ * from the moonrise "Purnima Vrat" above). It is the day Pūrṇimā prevails at
+ * sunrise (udaya), when the morning snāna/dāna is performed; at far-western
+ * longitudes this is typically the civil day AFTER the vrat. `nearest-window`
+ * covers the rare month whose Pūrṇimā touches no sunrise.
+ */
+export function purnimaSnanaRules(year: number): FestivalRule[] {
+  void year;
+  return monthlyVrataRules((month, slug, adhika) => [{
+    id: `purnima-snana-${slug}`,
+    displayName: `${month} Purnima (Snana-Dana)`,
+    month: { purnimanta: month },
+    category: "lunar-tithi",
+    extended: true,
+    ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
+    observance: { kind: "tithi-pervades", paksha: "shukla", tithi: "purnima", window: "sunrise", precedence: "udaya", fallback: "nearest-window" },
+  }]);
+}
+
 /** Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month. */
 export function amavasyaRules(year: number): FestivalRule[] {
   void year;
@@ -964,12 +984,21 @@ export function oneOffFestivalRules(year: number): FestivalRule[] {
     D("chaitra-navratri-parana", "Chaitra Navratri Parana", "rama-navami", 1),
     P("koorm-jayanti", "Koorm Jayanti", "Vaishakha"),
     T("narad-jayanti", "Narad Jayanti", "Jyeshtha", "krishna", 1),
-    // Ganga Dussehra — Jyeṣṭha Śukla Daśamī. Use the nija (regular) Jyeṣṭha so
-    // the festival resolves EVERY year; hardcoding the leap month made it vanish
-    // in non-adhika years. In 2026 HSNA places it in the Adhika Jyeṣṭha lunation
-    // (25 May) rather than the nija (24 Jun) — a festival-specific adhika choice
-    // left as a documented diff.
-    T("ganga-dussehra", "Ganga Dussehra", "Jyeshtha", "shukla", 10),
+    // Ganga Dussehra — Jyeṣṭha Śukla Daśamī, observed in the ADHIKA Jyeṣṭha when
+    // the year has one (Drik 2026: 25 May, Adhika Jyeṣṭha) and in the nija
+    // Jyeṣṭha otherwise. `adhika:"prefer-adhika"` encodes exactly that — it
+    // resolves every year without hardcoding the leap month.
+    {
+      id: "ganga-dussehra",
+      displayName: "Ganga Dussehra",
+      month: { purnimanta: "Jyeshtha" },
+      category: "lunar-tithi",
+      extended: true,
+      observance: {
+        kind: "tithi-pervades", paksha: "shukla", tithi: 10,
+        window: "sunrise", precedence: "udaya", adhika: "prefer-adhika",
+      },
+    },
     T("jagannath-rath-yatra", "Jagannath Rath Yatra", "Ashadha", "shukla", 2),
     T("hariyali-teej", "Hariyali Teej", "Shravana", "shukla", 3),
     T("nag-panchami", "Nag Panchami", "Shravana", "shukla", 5),
@@ -1016,6 +1045,7 @@ export function allRules(year: number): FestivalRule[] {
     ...pradoshRules(year),
     ...masikShivaratriRules(year),
     ...purnimaVratRules(year),
+    ...purnimaSnanaRules(year),
     ...amavasyaRules(year),
     ...sankrantiRules(year),
     ...oneOffFestivalRules(year),

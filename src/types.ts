@@ -86,7 +86,14 @@ export type Observance =
       precedence: "max-window-fraction" | "udaya" | "first" | "second";
       nakshatra?: { name: string; window?: Kala; mode: "required" | "preferred" };
       avoidKarana?: "vishti";
-      fallback?: "previous-day" | "next-day" | "nearest-window" }
+      fallback?: "previous-day" | "next-day" | "nearest-window";
+      /**
+       * Adhika-māsa policy in a leap-month year. Default = the nija (regular)
+       * lunation. `"prefer-adhika"` observes in the ADHIKA lunation of the named
+       * month when one exists that year, else falls back to nija — for festivals
+       * Drik places in the leap month (e.g. Ganga Dussehra in Adhika Jyeṣṭha).
+       */
+      adhika?: "prefer-adhika" }
   /** Pure solar: the Sun's sidereal ingress into a rāśi. */
   | { kind: "solar-ingress"; rashi: number /* 0=Mesha … 9=Makara */;
       punyaKala?: "after-moment-to-sunset" | "around-moment" }

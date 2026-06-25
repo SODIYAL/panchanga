@@ -665,7 +665,16 @@ function resolveTithiPervades(
   diagnostics: string[],
 ): { day: Date | null; instants: Record<string, string> } {
   const n = absoluteTithi(obs.paksha, obs.tithi);
-  const interval = findTithiIntervalInMonth(n, monthPurnimanta, year, diagnostics);
+  // Adhika-māsa policy: a "prefer-adhika" rule observes in the leap lunation of
+  // the named month when one exists this year (e.g. Ganga Dussehra → Adhika
+  // Jyeṣṭha). Probe the "Adhika <month>" label first with a throwaway diagnostic
+  // sink; if absent (an ordinary year), fall through to the nija lunation.
+  let interval: { start: Date; end: Date } | null = null;
+  if (obs.adhika === "prefer-adhika" && !/adhika/i.test(monthPurnimanta)) {
+    interval = findTithiIntervalInMonth(n, `Adhika ${monthPurnimanta}`, year, []);
+    if (interval) diagnostics.push(`adhika(prefer-adhika): observing in the Adhika ${monthPurnimanta} lunation`);
+  }
+  if (!interval) interval = findTithiIntervalInMonth(n, monthPurnimanta, year, diagnostics);
   const instants: Record<string, string> = {};
   if (!interval) return { day: null, instants };
 
