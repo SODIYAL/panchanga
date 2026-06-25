@@ -139,6 +139,34 @@ ayanamsha(t);        // Lahiri ayanāṁśa in degrees (≈ 24.2° in 2026)
 siderealSunRashi(t); // sidereal rāśi index of the Sun: 0 = Mesha … 11 = Mīna
 ```
 
+## HTTP API (serverless)
+
+For consumers that aren't JavaScript — other backends, mobile apps, no-code tools,
+plain `curl` — the repo ships a tiny JSON API in [`api/`](api) that wraps the engine.
+It's a set of Vercel serverless functions over a pure, unit-tested core
+([`api/_lib.ts`](api/_lib.ts)), with open CORS and long `Cache-Control` headers (the
+engine is deterministic, so responses cache hard at the edge).
+
+```
+GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
+GET /api/festivals?year=2026&place=calgary            → the year's festival dates
+GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
+GET /api                                              → usage + the place presets
+```
+
+Location is either a `place` preset (`calgary`, `new-delhi`, `toronto`, …) or explicit
+`lat`, `lng` & `tz`:
+
+```sh
+curl "https://<deployment>/api/festivals?year=2026&place=calgary"
+curl "https://<deployment>/api/panchanga?date=2026-11-08&lat=51.04&lng=-114.07&tz=America/Edmonton"
+```
+
+**Deploy:** import the repo into [Vercel](https://vercel.com) (zero config — `vercel.json`
+sets the build, `api/*.ts` become functions, `public/` is the landing page). Bad input
+returns `400` with an `{ error }`; everything else is `200`. The handler core is
+platform-agnostic, so it ports to Cloudflare Workers or any runtime with a thin adapter.
+
 ## API overview
 
 The public surface (see [`src/index.ts`](src/index.ts)) is layered:
