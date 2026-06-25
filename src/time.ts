@@ -635,6 +635,36 @@ export function abhijitMuhurta(date: Date, loc: GeoLocation): TimeWindow | null 
   };
 }
 
+/** All four day-part muhūrtas for a day. */
+export interface DayMuhurtaWindows {
+  rahuKala: TimeWindow | null;
+  yamaganda: TimeWindow | null;
+  gulika: TimeWindow | null;
+  abhijit: TimeWindow | null;
+}
+
+/**
+ * Compute Rāhu Kāla, Yamaganda, Gulika and Abhijit in ONE pass, resolving the
+ * day's sunrise/sunset a single time. Calling the four functions separately
+ * searches sunrise+sunset four times over; this shares one `dayArc`. Returns
+ * all-null at polar latitudes (no sunrise/sunset).
+ */
+export function dayMuhurtas(date: Date, loc: GeoLocation): DayMuhurtaWindows {
+  const arc = dayArc(date, loc);
+  if (!arc) return { rahuKala: null, yamaganda: null, gulika: null, abhijit: null };
+  const wd = civilWeekday(date, loc);
+  const dayMuhurta = arc.D / 15;
+  return {
+    rahuKala: dayEighth(arc.sr, arc.D, RAHU_SEGMENT[wd]),
+    yamaganda: dayEighth(arc.sr, arc.D, YAMA_SEGMENT[wd]),
+    gulika: dayEighth(arc.sr, arc.D, GULIKA_SEGMENT[wd]),
+    abhijit: {
+      start: new Date(arc.sr.getTime() + 7 * dayMuhurta),
+      end: new Date(arc.sr.getTime() + 8 * dayMuhurta),
+    },
+  };
+}
+
 /**
  * Saṅkrānti Puṇya-kāla
  *
