@@ -769,46 +769,58 @@ const PAKSHAS = ["shukla", "krishna"] as const;
 const ADHIKA = "Adhika Jyeshtha";
 const ADHIKA_NOTE = "Adhika-month entry; resolves to empty with a diagnostic in non-adhika years.";
 
+/** Slugify a month label for an id: lower-case, spaces → hyphens. */
+const monthSlug = (month: string): string => month.toLowerCase().replace(/\s+/g, "-");
+
+/**
+ * Shared scaffold for the recurring monthly vratas. Emits one rule per
+ * pūrṇimānta month plus the trailing Adhika Jyeṣṭha entry (present in 2026; the
+ * evaluator resolves it to an empty date with a diagnostic in non-adhika
+ * years). `build(month, slug, adhika)` returns the rule(s) for one month —
+ * `adhika` is true only on the Adhika pass, so callers attach `ADHIKA_NOTE`
+ * (and any extra pakṣa fan-out) themselves. This collapses four near-identical
+ * push-loop bodies into one.
+ */
+function monthlyVrataRules(
+  build: (month: string, slug: string, adhika: boolean) => FestivalRule[],
+): FestivalRule[] {
+  const out: FestivalRule[] = [];
+  for (const month of PURNIMANTA_MONTHS) out.push(...build(month, monthSlug(month), false));
+  out.push(...build(ADHIKA, monthSlug(ADHIKA), true));
+  return out;
+}
+
 /**
  * Pradoṣa Vrata — Trayodaśī (13) pervading the pradoṣa (post-sunset) window, in
  * both pakṣas of every month. The (S)/(K) suffix marks śukla/kṛṣṇa.
  */
 export function pradoshRules(year: number): FestivalRule[] {
-  const out: FestivalRule[] = [];
-  const push = (month: string, paksha: "shukla" | "krishna", id: string, note?: string) =>
-    out.push({
-      id,
+  void year;
+  return monthlyVrataRules((month, slug, adhika) =>
+    PAKSHAS.map((paksha) => ({
+      id: `pradosh-${slug}-${paksha}`,
       displayName: `Pradosh Vrat (${paksha === "shukla" ? "S" : "K"}, ${month})`,
       month: { purnimanta: month },
       category: "lunar-tithi",
       extended: true,
-      ...(note ? { meta: { note } } : {}),
+      ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
       observance: { kind: "tithi-pervades", paksha, tithi: 13, window: "pradosha", precedence: "max-window-fraction" },
-    });
-  for (const month of PURNIMANTA_MONTHS) for (const p of PAKSHAS) push(month, p, `pradosh-${month.toLowerCase()}-${p}`);
-  push(ADHIKA, "shukla", "pradosh-adhika-jyeshtha-shukla", ADHIKA_NOTE);
-  push(ADHIKA, "krishna", "pradosh-adhika-jyeshtha-krishna", ADHIKA_NOTE);
-  void year;
-  return out;
+    })),
+  );
 }
 
 /** Masik Śivarātri — Kṛṣṇa Caturdaśī (14) in the niśīta (midnight) window. */
 export function masikShivaratriRules(year: number): FestivalRule[] {
-  const out: FestivalRule[] = [];
-  const push = (month: string, id: string, note?: string) =>
-    out.push({
-      id,
-      displayName: `Masik Shivaratri (${month})`,
-      month: { purnimanta: month },
-      category: "lunar-tithi",
-      extended: true,
-      ...(note ? { meta: { note } } : {}),
-      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction" },
-    });
-  for (const month of PURNIMANTA_MONTHS) push(month, `masik-shivaratri-${month.toLowerCase()}`);
-  push(ADHIKA, "masik-shivaratri-adhika-jyeshtha", ADHIKA_NOTE);
   void year;
-  return out;
+  return monthlyVrataRules((month, slug, adhika) => [{
+    id: `masik-shivaratri-${slug}`,
+    displayName: `Masik Shivaratri (${month})`,
+    month: { purnimanta: month },
+    category: "lunar-tithi",
+    extended: true,
+    ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
+    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction" },
+  }]);
 }
 
 /**
@@ -818,40 +830,30 @@ export function masikShivaratriRules(year: number): FestivalRule[] {
  * snāna-dāna Pūrṇimā).
  */
 export function purnimaVratRules(year: number): FestivalRule[] {
-  const out: FestivalRule[] = [];
-  const push = (month: string, id: string, note?: string) =>
-    out.push({
-      id,
-      displayName: `${month} Purnima Vrat`,
-      month: { purnimanta: month },
-      category: "moonrise",
-      extended: true,
-      ...(note ? { meta: { note } } : {}),
-      observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
-    });
-  for (const month of PURNIMANTA_MONTHS) push(month, `purnima-vrat-${month.toLowerCase()}`);
-  push(ADHIKA, "purnima-vrat-adhika-jyeshtha", ADHIKA_NOTE);
   void year;
-  return out;
+  return monthlyVrataRules((month, slug, adhika) => [{
+    id: `purnima-vrat-${slug}`,
+    displayName: `${month} Purnima Vrat`,
+    month: { purnimanta: month },
+    category: "moonrise",
+    extended: true,
+    ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
+    observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
+  }]);
 }
 
 /** Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month. */
 export function amavasyaRules(year: number): FestivalRule[] {
-  const out: FestivalRule[] = [];
-  const push = (month: string, id: string, note?: string) =>
-    out.push({
-      id,
-      displayName: `${month} Amavasya`,
-      month: { purnimanta: month },
-      category: "lunar-tithi",
-      extended: true,
-      ...(note ? { meta: { note } } : {}),
-      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
-    });
-  for (const month of PURNIMANTA_MONTHS) push(month, `amavasya-${month.toLowerCase()}`);
-  push(ADHIKA, "amavasya-adhika-jyeshtha", ADHIKA_NOTE);
   void year;
-  return out;
+  return monthlyVrataRules((month, slug, adhika) => [{
+    id: `amavasya-${slug}`,
+    displayName: `${month} Amavasya`,
+    month: { purnimanta: month },
+    category: "lunar-tithi",
+    extended: true,
+    ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
+    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
+  }]);
 }
 
 /**
@@ -874,10 +876,10 @@ export function sankrantiRules(year: number): FestivalRule[] {
     ["Dhanu Sankranti", "dhanu", 8],
   ];
   void year;
+  // `month` is omitted: solar-ingress keys on the rāśi, not a lunar-month label.
   return minor.map(([displayName, slug, rashi]) => ({
     id: `sankranti-${slug}`,
     displayName,
-    month: { purnimanta: "" }, // solar-ingress does not use the month label
     category: "solar" as const,
     extended: true,
     observance: { kind: "solar-ingress" as const, rashi, punyaKala: "after-moment-to-sunset" as const },
@@ -918,11 +920,11 @@ export function oneOffFestivalRules(year: number): FestivalRule[] {
     extended: true,
     observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
   });
-  // offset from another rule
+  // offset from another rule (`month` omitted — derived rules take their date,
+  // and thus their month label, from the referenced festival).
   const D = (id: string, displayName: string, from: string, offsetDays: number): FestivalRule => ({
     id,
     displayName,
-    month: { purnimanta: "" },
     category: "derived",
     extended: true,
     observance: { kind: "derived", from, offsetDays },

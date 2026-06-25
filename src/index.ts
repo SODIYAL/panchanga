@@ -18,6 +18,7 @@ export {
   moonrise,
   sunset,
   varaAt,
+  weekdayOfLocalDay,
   VARA_NAMES,
   sunriseWindow,
   pratahkala,

@@ -101,8 +101,13 @@ export type FestivalRule = {
   /** Stable slug. */
   id: string;
   displayName: string;
-  /** Pūrṇimānta month label; the amānta label is derived at output time. */
-  month: { purnimanta: string };
+  /**
+   * Pūrṇimānta month label; the amānta label is derived at output time.
+   * OPTIONAL: solar-ingress and derived rules don't key on a lunar month, so
+   * they omit it rather than carry an empty-string placeholder. For lunar-tithi
+   * / moonrise / solar-arghya rules it is required to anchor the lunation.
+   */
+  month?: { purnimanta: string };
   category: "lunar-tithi" | "solar" | "moonrise" | "derived";
   /** True if this is part of the §4b extended set. */
   extended?: boolean;

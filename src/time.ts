@@ -291,6 +291,16 @@ export interface Vara {
 }
 
 /**
+ * Weekday index 0..6 (0 = Sunday) of a local calendar date given as a
+ * "YYYY-MM-DD" string. A civil date's weekday is timezone-invariant, so we
+ * anchor it at noon UTC (away from any DST/offset edge) and read getUTCDay().
+ * Shared by `varaAt`, the kāla-window weekday tables, and the daily aggregator.
+ */
+export function weekdayOfLocalDay(dayString: string): number {
+  return new Date(`${dayString}T12:00:00Z`).getUTCDay();
+}
+
+/**
  * The vāra (weekday) governing the instant `date` at `loc`.
  *
  * The pañcāṅga day runs SUNRISE-to-SUNRISE, not civil midnight: the hours
@@ -312,7 +322,7 @@ export function varaAt(date: Date, loc: GeoLocation): Vara | null {
     d.setUTCDate(d.getUTCDate() - 1);
     owningDate = d.toISOString().slice(0, 10);
   }
-  const index = new Date(`${owningDate}T12:00:00Z`).getUTCDay();
+  const index = weekdayOfLocalDay(owningDate);
   return { index, name: VARA_NAMES[index] };
 }
 
@@ -574,7 +584,7 @@ const GULIKA_SEGMENT = [7, 6, 5, 4, 3, 2, 1] as const;
 
 /** Weekday (0 = Sunday) of the civil day of `date` in `loc`'s timezone. */
 function civilWeekday(date: Date, loc: GeoLocation): number {
-  return new Date(`${localDayString(date, loc.timeZone)}T12:00:00Z`).getUTCDay();
+  return weekdayOfLocalDay(localDayString(date, loc.timeZone));
 }
 
 /** The `seg`-th eighth (1..8) of the daytime starting at sunrise `sr`. */

@@ -486,7 +486,12 @@ export type BhadraVasa = "svarga" | "prithvi" | "patala";
 export interface BhadraDetails {
   /** Loka: svarga (heaven), prithvi (earth/bhūmi, the harmful one), patala. */
   vasa: BhadraVasa;
-  /** The Moon's sidereal rāśi (0 = Mesha … 11 = Mīna) at the start of Bhadra. */
+  /**
+   * The Moon's sidereal rāśi (0 = Mesha … 11 = Mīna) during Bhadra, sampled at
+   * the interval MIDPOINT. The vāsa is reckoned from the rāśi the Moon occupies
+   * *during* Bhadra; the midpoint is the representative instant (an endpoint can
+   * fall on the wrong side of a rāśi change that occurs within the span).
+   */
   moonRashi: number;
   /** Bhadra Mukha — inauspicious leading 1/6 (5 ghaṭī of a 30-ghaṭī karaṇa). */
   mukha: KaranaInterval;
@@ -519,7 +524,11 @@ export function bhadraSplit(interval: KaranaInterval): BhadraDetails {
   const startMs = interval.start.getTime();
   const endMs = interval.end.getTime();
   const span = endMs - startMs;
-  const moonRashi = Math.floor(siderealLongitude(interval.start, Body.Moon) / 30) % 12;
+  // Sample the Moon's rāśi at the Bhadra MIDPOINT — the representative instant
+  // for "during Bhadra" (a single endpoint can misclassify the rare case where
+  // the Moon crosses a rāśi boundary within the span).
+  const midpoint = new Date(startMs + span / 2);
+  const moonRashi = Math.floor(siderealLongitude(midpoint, Body.Moon) / 30) % 12;
   return {
     vasa: BHADRA_VASA_BY_RASHI[moonRashi],
     moonRashi,

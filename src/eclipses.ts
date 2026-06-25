@@ -80,6 +80,24 @@ function altitude(body: Body, when: Date, loc: GeoLocation): number {
   return Horizon(t, obs, eq.ra, eq.dec, "normal").altitude;
 }
 
+/**
+ * True if the Moon is above the horizon at ANY of `samples` evenly-spaced
+ * instants across `[start, end]` (inclusive) as seen from `loc`. A lunar
+ * grahaṇa is reckoned visible when the Moon is up during the eclipse — sampling
+ * across the whole phase (not just greatest eclipse) catches a moonrise/moonset
+ * eclipse, where the Moon is below the horizon at peak yet the eclipse is in
+ * progress as it rises or sets.
+ */
+function moonUpDuring(start: string, end: string, loc: GeoLocation, samples = 9): boolean {
+  const a = new Date(start).getTime();
+  const b = new Date(end).getTime();
+  for (let i = 0; i < samples; i++) {
+    const when = new Date(a + ((b - a) * i) / (samples - 1));
+    if (altitude(Body.Moon, when, loc) > 0) return true;
+  }
+  return false;
+}
+
 /** All lunar eclipses whose peak falls in calendar `year` (UTC). */
 export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
   if (loc) validateLocation(loc);
@@ -99,7 +117,12 @@ export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
     const partial = e.sd_partial > 0 ? span(e.sd_partial) : null;
     const total = e.sd_total > 0 ? span(e.sd_total) : null;
 
-    const visible = loc ? altitude(Body.Moon, peak, loc) > 0 : null;
+    // Reckon visibility across the whole eclipse, not just greatest eclipse:
+    // the umbral (partial) window for an umbral eclipse, else the penumbral
+    // window. This way a moonrise/moonset eclipse — Moon below the horizon at
+    // peak but up during the umbral phase — is correctly counted as visible.
+    const reckonWindow = partial ?? penumbral;
+    const visible = loc ? moonUpDuring(reckonWindow.start, reckonWindow.end, loc) : null;
     // Sūtak applies only to a grahaṇa with an UMBRAL phase. A purely penumbral
     // (māndya / upacchāyā) lunar eclipse is not reckoned as a grahaṇa in the
     // Smārta convention, so it carries no sūtak; and for umbral eclipses the

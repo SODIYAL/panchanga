@@ -34,6 +34,7 @@ import {
   sunset,
   moonrise,
   dayMuhurtas,
+  weekdayOfLocalDay,
   VARA_NAMES,
   type TimeWindow,
   type IsoWindow,
@@ -119,7 +120,7 @@ export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
 
   // The vāra of a named civil day is simply that date's weekday (the
   // sunrise-rollback in `varaAt` only matters for arbitrary pre-dawn instants).
-  const varaIndex = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+  const varaIndex = weekdayOfLocalDay(dateStr);
 
   return {
     date: dateStr,
