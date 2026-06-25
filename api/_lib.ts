@@ -14,6 +14,11 @@
  * Location is given either by a `place` preset or by `lat`, `lng` & `tz`.
  */
 
+// Runtime values come from the esbuild bundle (api-engine/index.js) with
+// astronomy-engine inlined, so the Vercel ESM lambda never resolves
+// astronomy-engine's CommonJS build (whose `Body` enum defeats Node's named-
+// export detection). Types come from the real library declarations.
+import type { GeoLocation, FestivalRule } from "../dist/index.js";
 import {
   dailyPanchanga,
   computeFestivals,
@@ -24,9 +29,7 @@ import {
   CHHATH_RULE,
   lunarEclipses,
   solarEclipses,
-  type GeoLocation,
-  type FestivalRule,
-} from "../dist/index.js";
+} from "../api-engine/index.js";
 
 /** Named location presets so callers can pass `?place=calgary` instead of coords. */
 const PRESETS: Record<string, GeoLocation & { name: string }> = {

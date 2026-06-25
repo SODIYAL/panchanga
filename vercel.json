@@ -3,6 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "cleanUrls": true,
+  "functions": {
+    "api/*.ts": {
+      "includeFiles": "api-engine/**"
+    }
+  },
   "rewrites": [
     { "source": "/calendar.ics", "destination": "/api/calendar" },
     { "source": "/api/calendar.ics", "destination": "/api/calendar" }
