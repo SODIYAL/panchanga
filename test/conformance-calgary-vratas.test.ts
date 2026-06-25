@@ -16,7 +16,9 @@
  *    "Vat Purnima Vrat" (Jun 28) confirms the engine matches the VRAT date, not
  *    the snāna. Those 6 are pinned with that note.
  *  • Two genuine ±1 edges are pinned (Mithuna Saṅkrānti, Sarva-Pitṛ Amāvāsyā).
- *  • Two Masik Śivarātri resolve to NO date at Calgary (niśīta gap, documented).
+ *  • Every vrata now resolves at Calgary — the two Masik Śivarātri that used to
+ *    fall in the niśīta gap (Caturdaśī straddling two midnights) are placed on
+ *    the Caturdaśī day by the `nearest-window` fallback.
  */
 
 import { describe, it, expect } from "vitest";
@@ -121,11 +123,10 @@ const KNOWN_DIFFS: Record<string, string> = {
   "amavasya-ashwina": "2026-10-10", // Drik 2026-10-09 (Sarva Pitṛ)
 };
 
-// Masik Śivarātri entries with no Calgary date: the Kṛṣṇa Caturdaśī ends ~1h
-// before Calgary's niśīta window on every candidate day, and the tithi-pervasion
-// selector has no fallback. The tithi IS present that night — just not during
-// the midnight muhūrta. Documented Calgary localisation gap.
-const CALGARY_NISHITA_GAP = ["masik-shivaratri-bhadrapada", "masik-shivaratri-adhika-jyeshtha"];
+// Previously two Masik Śivarātri had no Calgary date (the Kṛṣṇa Caturdaśī ends
+// ~1h before Calgary's niśīta on every candidate day). The `nearest-window`
+// fallback now places them on the Caturdaśī day, so NO vrata is undated.
+const CALGARY_NISHITA_GAP: string[] = [];
 
 const rules = allRules(YEAR);
 const engine = new Map(computeFestivals(YEAR, CALGARY, { rules }).results.map((r) => [r.id, r.date]));
@@ -147,7 +148,7 @@ describe("Calgary vrata conformance — 2026 vs Drik Panchang (geoname-id 591349
     expect(exact.length).toBe(ek.length);
   });
 
-  it("the only undated Calgary vratas are the pinned niśīta gap", () => {
+  it("every recurring vrata resolves at Calgary (no undated entries)", () => {
     const allVratIds = rules
       .map((r) => r.id)
       .filter((id) =>

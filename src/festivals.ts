@@ -111,7 +111,7 @@ export interface SelectOptions {
   /** Nakshatra mode, if the rule has a nakshatra clause. */
   nakshatra?: "required" | "preferred";
   avoidKarana?: "vishti";
-  fallback?: "previous-day" | "next-day";
+  fallback?: "previous-day" | "next-day" | "nearest-window";
 }
 
 export interface SelectResult {
@@ -120,7 +120,7 @@ export interface SelectResult {
   /** Window-coverage fraction of the chosen day (0 when none). */
   coverageFraction: number;
   /** The fallback that was triggered because no day pervaded, if any. */
-  fallbackApplied: "previous-day" | "next-day" | null;
+  fallbackApplied: "previous-day" | "next-day" | "nearest-window" | null;
   /** Bhadra overlap recorded on the chosen day (avoidKarana:"vishti"). */
   bhadraOverlap: { start: Date; end: Date } | null;
   diagnostics: string[];
@@ -149,6 +149,19 @@ function windowFraction(
 /** Is the festival tithi live at instant `t` (half-open: start ≤ t < end)? */
 function tithiLiveAt(interval: { start: Date; end: Date }, t: Date): boolean {
   return interval.start.getTime() <= t.getTime() && interval.end.getTime() > t.getTime();
+}
+
+/**
+ * Temporal gap (ms, ≥0) between the tithi interval and the kāla window: 0 if
+ * they overlap, otherwise the size of the bare interval separating them. Used by
+ * the `nearest-window` fallback to pick the candidate whose window sits closest
+ * to the tithi when none actually pervades.
+ */
+function tithiWindowGap(c: PervasionCandidate): number {
+  const t = c.tithiInterval;
+  const w = c.window;
+  if (overlapMs(t, w) > 0) return 0;
+  return Math.max(w.start.getTime() - t.end.getTime(), t.start.getTime() - w.end.getTime());
 }
 
 /** Is the tithi live at the window's start instant (udaya)? */
@@ -283,6 +296,26 @@ export function selectDayByPervasion(
         // a partial overlap can remain on the chosen day, so surface it rather
         // than asserting null.
         bhadraOverlap: shifted.bhadraOverlap ?? null,
+        diagnostics,
+      };
+    }
+
+    // nearest-window fallback: no day pervades the window, but the festival
+    // still occurs (e.g. a niśīta-vyāpinī Caturdaśī that straddles two midnights
+    // without covering either, at a far-western longitude). Keep the candidate
+    // whose window sits closest to the tithi — the day on which the tithi is
+    // current going into that night. Resolved here (we hold the candidates),
+    // so the caller receives a chosen day rather than a previous/next-day shift.
+    if (opts.fallback === "nearest-window" && pool.length > 0) {
+      const nearest = pool.reduce((best, c) => (tithiWindowGap(c) < tithiWindowGap(best) ? c : best));
+      diagnostics.push(
+        "fallback(nearest-window): tithi pervaded no candidate window; chose the day whose window is nearest the tithi",
+      );
+      return {
+        chosen: nearest,
+        coverageFraction: 0,
+        fallbackApplied: "nearest-window",
+        bhadraOverlap: null,
         diagnostics,
       };
     }

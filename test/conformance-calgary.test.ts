@@ -8,11 +8,11 @@
  * is frequently one civil day earlier than New Delhi for sunrise/moonrise
  * festivals.
  *
- * Result: 23 of 24 core festivals match Drik Panchang Calgary EXACTLY, including
+ * Result: all 24 core festivals match Drik Panchang Calgary EXACTLY, including
  * every localised −1 shift (Holika, Hanuman Jayanti, Mesha Sankranti, Rakṣā
  * Bandhan, Janmāṣṭamī, Karva Chauth, Naraka Caturdaśī, Govardhan, Bhai Dūj,
- * Gītā Jayantī). The one diff is pinned (`KNOWN_DIFFS`) so a regression OR a
- * future fix both surface as a failure to acknowledge.
+ * Gītā Jayantī) and Navrātri Ghaṭasthāpana (Oct 11) once Navrātri was moved to
+ * the udaya precedence Drik uses.
  *
  * DO NOT tune the engine to make a pinned diff pass — like its Delhi sibling,
  * this is a measuring instrument.
@@ -69,12 +69,8 @@ const DRIK_CALGARY: Record<string, string> = {
 // Festivals the engine resolves to a ±1 neighbour of the Drik Calgary date. We
 // pin the ACTUAL produced date (the `// Drik:` note gives the target), so BOTH a
 // regression AND a future fix surface as a failure that must be acknowledged.
-const KNOWN_DIFFS: Record<string, string> = {
-  // Navrātri Pratipadā: max-window-fraction over-localises by a day at Calgary
-  // (Drik observes the udaya day, Oct 11). The later Navrātri days — Aṣṭamī
-  // (Oct 18), Navamī (Oct 19), Daśamī (Oct 20) — all match Drik exactly.
-  "sharadiya-navratri": "2026-10-10", // Drik 2026-10-11
-};
+// (Currently empty — Navrātri, the prior diff, is fixed by the udaya precedence.)
+const KNOWN_DIFFS: Record<string, string> = {};
 
 const engine = new Map(
   computeFestivals(YEAR, CALGARY, { rules: CORE_RULES }).results.map((r) => [r.id, r.date]),
@@ -93,11 +89,10 @@ describe("Calgary core conformance — 2026 vs Drik Panchang (geoname-id 5913490
     });
   }
 
-  it("matches Drik Panchang Calgary on ≥ 95% of core festivals", () => {
+  it("matches Drik Panchang Calgary on every core festival", () => {
     const ids = Object.keys(DRIK_CALGARY);
     const exact = ids.filter((id) => engine.get(id) === DRIK_CALGARY[id]).length;
-    expect(exact).toBe(ids.length - Object.keys(KNOWN_DIFFS).length); // 23 / 24
-    expect(exact / ids.length).toBeGreaterThanOrEqual(0.95);
+    expect(exact).toBe(ids.length - Object.keys(KNOWN_DIFFS).length); // 24 / 24
   });
 
   it("keeps every Calgary date within ±1 day of New Delhi (localisation invariant)", () => {

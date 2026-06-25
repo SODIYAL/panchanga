@@ -292,7 +292,12 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: 1,
       window: "purvahna",
-      precedence: "max-window-fraction",
+      // Ghaṭasthāpana is udaya-vyāpinī: observed on the day Pratipadā is present
+      // at sunrise. max-window-fraction coincides with udaya at New Delhi (the
+      // tithi sits in the evening there) but diverges at far-western longitudes
+      // where Pratipadā straddles sunrise — Calgary 2026 confirmed udaya matches
+      // Drik (Oct 11) while max-window-fraction wrongly gave Oct 10.
+      precedence: "udaya",
     },
   },
 
@@ -815,7 +820,17 @@ export function pradoshRules(year: number): FestivalRule[] {
   );
 }
 
-/** Masik Śivarātri — Kṛṣṇa Caturdaśī (14) in the niśīta (midnight) window. */
+/**
+ * Masik Śivarātri — Kṛṣṇa Caturdaśī (14) in the niśīta (midnight) window.
+ *
+ * `fallback: "nearest-window"`: at far-western longitudes the Caturdaśī can
+ * straddle two midnights without covering either niśīta (it ends ~1h before the
+ * later one and starts after the earlier one), so no day pervades. The vrata
+ * still occurs — on the day the Caturdaśī is current going into the night — so
+ * we keep the candidate whose niśīta is nearest the tithi instead of dropping
+ * the date. (Closes the 2 undated Calgary 2026 entries; no effect where a day
+ * does pervade, i.e. New Delhi and the other 11 months.)
+ */
 export function masikShivaratriRules(year: number): FestivalRule[] {
   void year;
   return monthlyVrataRules((month, slug, adhika) => [{
@@ -825,7 +840,7 @@ export function masikShivaratriRules(year: number): FestivalRule[] {
     category: "lunar-tithi",
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
-    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction" },
+    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction", fallback: "nearest-window" },
   }]);
 }
 

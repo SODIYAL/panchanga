@@ -188,6 +188,30 @@ describe("selectDayByPervasion — fallback when pervaded on no day", () => {
     expect(r.fallbackApplied).toBe("next-day");
   });
 
+  it("'nearest-window' keeps the candidate whose window is closest to the tithi (niśīta gap)", () => {
+    // The tithi (Jan 2 00:00–22:00) straddles two days' windows, covering neither
+    // — the Masik-Śivarātri-at-Calgary shape. dayA's window ends 2h before the
+    // tithi starts; dayB's begins 30 min after it ends. nearest-window picks dayB.
+    const mk = (
+      dayISO: string,
+      winStart: string,
+      winEnd: string,
+    ): PervasionCandidate => ({
+      day: new Date(`${dayISO}T00:00:00Z`),
+      tithiInterval: { start: new Date("2026-01-02T00:00:00Z"), end: new Date("2026-01-02T22:00:00Z") },
+      window: { start: new Date(winStart), end: new Date(winEnd) },
+    });
+    const dayA = mk("2026-01-01", "2026-01-01T20:00:00Z", "2026-01-01T22:00:00Z"); // gap 2h
+    const dayB = mk("2026-01-02", "2026-01-02T22:30:00Z", "2026-01-03T00:00:00Z"); // gap 30m
+    const r = selectDayByPervasion([dayA, dayB], {
+      precedence: "max-window-fraction",
+      fallback: "nearest-window",
+    });
+    expect(r.fallbackApplied).toBe("nearest-window");
+    expect(r.chosen?.day.toISOString()).toBe(dayB.day.toISOString());
+    expect(r.coverageFraction).toBe(0); // chosen by proximity, not pervasion
+  });
+
   it("when 'required' nakshatra eliminates every candidate, no day is chosen", () => {
     const day1 = candidate("2026-01-01", 0.6, { nakshatraOk: false });
     const day2 = candidate("2026-01-02", 0.4, { nakshatraOk: false });

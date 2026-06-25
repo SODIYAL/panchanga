@@ -76,13 +76,17 @@ export type Observance =
    * `avoidKarana: "vishti"` (Bhadra — Holikā, Rakhi): the Bhadra overlap is
    * recorded, and (via `bhadraSplit`) its Mukha/Pucchā windows and Vāsa are
    * surfaced in the result instants.
-   * `fallback` applies when the tithi pervades the window on NO candidate day.
+   * `fallback` applies when the tithi pervades the window on NO candidate day:
+   *  • previous-day / next-day — shift one civil day either way;
+   *  • nearest-window — keep the candidate day whose kāla window is closest to
+   *    the tithi (for niśīta festivals where the tithi straddles two midnights
+   *    without covering either, e.g. Masik Śivarātri at far-western longitudes).
    */
   | { kind: "tithi-pervades"; paksha: Paksha; tithi: TithiRef; window: Kala;
       precedence: "max-window-fraction" | "udaya" | "first" | "second";
       nakshatra?: { name: string; window?: Kala; mode: "required" | "preferred" };
       avoidKarana?: "vishti";
-      fallback?: "previous-day" | "next-day" }
+      fallback?: "previous-day" | "next-day" | "nearest-window" }
   /** Pure solar: the Sun's sidereal ingress into a rāśi. */
   | { kind: "solar-ingress"; rashi: number /* 0=Mesha … 9=Makara */;
       punyaKala?: "after-moment-to-sunset" | "around-moment" }
