@@ -47,7 +47,7 @@ describe("lunarEclipses(2026)", () => {
     expect(withLoc.every((e) => e.sutak === null)).toBe(true);
   });
 
-  it("is visible from Los Angeles, with sūtak starting 9h before first contact", () => {
+  it("is visible from Los Angeles, with sūtak starting 9h before umbral first contact", () => {
     const total = lunarEclipses(2026, LOS_ANGELES).find((e) => e.kind === "total")!;
     expect(total.visible).toBe(true);
     expect(total.sutak).not.toBeNull();
@@ -55,6 +55,14 @@ describe("lunarEclipses(2026)", () => {
     const expectStart = total.partial!.start.getTime() - 9 * 3_600_000;
     expect(total.sutak!.start.getTime()).toBe(expectStart);
     expect(total.sutak!.end.getTime()).toBe(total.partial!.end.getTime());
+  });
+
+  it("does NOT emit sūtak for a purely penumbral eclipse, even when visible", () => {
+    // 25 Mar 2024 is a penumbral lunar eclipse, visible from Los Angeles.
+    const pen = lunarEclipses(2024, LOS_ANGELES).find((e) => e.kind === "penumbral")!;
+    expect(pen.partial).toBeNull(); // no umbral phase
+    expect(pen.visible).toBe(true); // Moon above the horizon at peak
+    expect(pen.sutak).toBeNull(); // penumbral ≠ grahaṇa → no sūtak
   });
 });
 
