@@ -81,6 +81,16 @@ export interface TimeWindow {
   end: Date;
 }
 
+/**
+ * A time window as ISO-UTC strings — the convention for assembled, serialization
+ * -friendly RESULT objects (DailyPanchanga, eclipse records). The `Date`-valued
+ * `TimeWindow` is for lower-level computed primitives (kāla windows, boundaries).
+ */
+export interface IsoWindow {
+  start: string;
+  end: string;
+}
+
 // ---------------------------------------------------------------------------
 // Intl parts helper
 // ---------------------------------------------------------------------------

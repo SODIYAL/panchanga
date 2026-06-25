@@ -37,6 +37,7 @@ export {
   sankrantiPunyaKala,
   type GeoLocation,
   type TimeWindow,
+  type IsoWindow,
   type Vara,
 } from "./time.js";
 
@@ -79,7 +80,7 @@ export {
   solarEclipses,
   type LunarEclipse,
   type SolarEclipse,
-  type Phase,
+  type GrahanKind,
 } from "./eclipses.js";
 
 // ── Daily pañcāṅga aggregator ───────────────────────────────────────────────
@@ -87,7 +88,6 @@ export {
   dailyPanchanga,
   type DailyPanchanga,
   type RunningElement,
-  type IsoWindow,
   type DayMuhurtas,
 } from "./panchanga.js";
 

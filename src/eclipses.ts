@@ -28,43 +28,48 @@ import {
   Observer,
   Body,
   MakeTime,
-  EclipseKind,
 } from "astronomy-engine";
 
-import { validateLocation, type GeoLocation } from "./time.js";
+import { validateLocation, type GeoLocation, type IsoWindow } from "./time.js";
 
 const MIN_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
-/** A {start,end} pair, or null when the phase does not occur. */
-export interface Phase {
-  start: Date;
-  end: Date;
-}
+const iso = (d: Date): string => d.toISOString();
+const isoWin = (start: Date, end: Date): IsoWindow => ({ start: iso(start), end: iso(end) });
 
+/**
+ * Eclipse type (grahaṇa kind), as a local string union so consumers can name
+ * the discriminant without reaching into the `astronomy-engine` dependency.
+ */
+export type GrahanKind = "penumbral" | "partial" | "total" | "annular";
+
+// All timed fields are ISO-UTC strings, matching the other assembled result
+// objects (DailyPanchanga, FestivalResult). Use `new Date(...)` to deserialize.
 export interface LunarEclipse {
-  kind: EclipseKind; // "penumbral" | "partial" | "total"
-  peak: Date;
-  penumbral: Phase;
+  kind: GrahanKind; // penumbral | partial | total
+  /** ISO-UTC instant of greatest eclipse. */
+  peak: string;
+  penumbral: IsoWindow;
   /** Umbral partial phase; null for a penumbral-only eclipse. */
-  partial: Phase | null;
+  partial: IsoWindow | null;
   /** Totality; null unless the eclipse is total. */
-  total: Phase | null;
+  total: IsoWindow | null;
   /** Whether the Moon is above the horizon at peak in `loc` (null if no loc). */
   visible: boolean | null;
-  /** Sūtak window (9h before first contact → mokṣa) when visible; else null. */
-  sutak: Phase | null;
+  /** Sūtak window (9h before umbral first contact → mokṣa) when visible; else null. */
+  sutak: IsoWindow | null;
 }
 
 export interface SolarEclipse {
-  kind: EclipseKind; // "partial" | "annular" | "total"
-  /** Instant of greatest eclipse (global). */
-  peak: Date;
+  kind: GrahanKind; // partial | annular | total
+  /** ISO-UTC instant of greatest eclipse (global). */
+  peak: string;
   /** Local circumstances at `loc` when the eclipse is seen there; else null. */
-  local: { partialStart: Date; peak: Date; partialEnd: Date; obscuration: number } | null;
+  local: { partialStart: string; peak: string; partialEnd: string; obscuration: number } | null;
   visible: boolean | null;
   /** Sūtak window (12h before local first contact → last contact); else null. */
-  sutak: Phase | null;
+  sutak: IsoWindow | null;
 }
 
 /** Altitude (degrees) of `body` at instant `when` as seen from `loc`. */
@@ -88,10 +93,8 @@ export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
 
   for (let i = 0; i < 30 && e.peak.date.getTime() < yearEnd; i++) {
     const peak = e.peak.date;
-    const span = (sdMin: number): Phase => ({
-      start: new Date(peak.getTime() - sdMin * MIN_MS),
-      end: new Date(peak.getTime() + sdMin * MIN_MS),
-    });
+    const span = (sdMin: number): IsoWindow =>
+      isoWin(new Date(peak.getTime() - sdMin * MIN_MS), new Date(peak.getTime() + sdMin * MIN_MS));
     const penumbral = span(e.sd_penum);
     const partial = e.sd_partial > 0 ? span(e.sd_partial) : null;
     const total = e.sd_total > 0 ? span(e.sd_total) : null;
@@ -103,10 +106,18 @@ export function lunarEclipses(year: number, loc?: GeoLocation): LunarEclipse[] {
     // window is reckoned from the umbral (partial) contacts, not the penumbral.
     const sutak =
       visible && partial
-        ? { start: new Date(partial.start.getTime() - 9 * HOUR_MS), end: partial.end }
+        ? isoWin(new Date(new Date(partial.start).getTime() - 9 * HOUR_MS), new Date(partial.end))
         : null;
 
-    out.push({ kind: e.kind, peak, penumbral, partial, total, visible, sutak });
+    out.push({
+      kind: e.kind as unknown as GrahanKind,
+      peak: iso(peak),
+      penumbral,
+      partial,
+      total,
+      visible,
+      sutak,
+    });
     e = NextLunarEclipse(e.peak);
   }
   return out;
@@ -126,7 +137,7 @@ export function solarEclipses(year: number, loc?: GeoLocation): SolarEclipse[] {
     const peak = e.peak.date;
     let local: SolarEclipse["local"] = null;
     let visible: boolean | null = loc ? false : null;
-    let sutak: Phase | null = null;
+    let sutak: IsoWindow | null = null;
 
     if (loc) {
       const obs = new Observer(loc.latitude, loc.longitude, loc.elevationMeters ?? 0);
@@ -135,21 +146,20 @@ export function solarEclipses(year: number, loc?: GeoLocation): SolarEclipse[] {
       const lse = SearchLocalSolarEclipse(new Date(peak.getTime() - 24 * HOUR_MS), obs);
       const within = Math.abs(lse.peak.time.date.getTime() - peak.getTime()) < 24 * HOUR_MS;
       if (within && lse.partial_begin && lse.peak.altitude > 0 && lse.obscuration > 0) {
+        const partialStart = lse.partial_begin.time.date;
+        const partialEnd = lse.partial_end!.time.date;
         local = {
-          partialStart: lse.partial_begin.time.date,
-          peak: lse.peak.time.date,
-          partialEnd: lse.partial_end!.time.date,
+          partialStart: iso(partialStart),
+          peak: iso(lse.peak.time.date),
+          partialEnd: iso(partialEnd),
           obscuration: lse.obscuration,
         };
         visible = true;
-        sutak = {
-          start: new Date(local.partialStart.getTime() - 12 * HOUR_MS),
-          end: local.partialEnd,
-        };
+        sutak = isoWin(new Date(partialStart.getTime() - 12 * HOUR_MS), partialEnd);
       }
     }
 
-    out.push({ kind: e.kind, peak, local, visible, sutak });
+    out.push({ kind: e.kind as unknown as GrahanKind, peak: iso(peak), local, visible, sutak });
     e = NextGlobalSolarEclipse(e.peak);
   }
   return out;
