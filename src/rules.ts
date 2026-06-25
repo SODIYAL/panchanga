@@ -891,20 +891,23 @@ export function sankrantiRules(year: number): FestivalRule[] {
  * another festival. Validated against HSNA 2026 (test/hsna-oneoff.test.ts).
  */
 export function oneOffFestivalRules(year: number): FestivalRule[] {
-  // udaya-tithi at sunrise
+  // udaya-tithi at sunrise by default; some festivals key on a later kāla (the
+  // tithi prevailing at that ritual window), which is given explicitly.
   const T = (
     id: string,
     displayName: string,
     month: string,
     paksha: "shukla" | "krishna",
     tithi: number,
+    window: "sunrise" | "purvahna" | "madhyahna" | "aparahna" | "pradosha" | "nishita" = "sunrise",
+    precedence: "udaya" | "max-window-fraction" | "first" | "second" = "udaya",
   ): FestivalRule => ({
     id,
     displayName,
     month: { purnimanta: month },
     category: "lunar-tithi",
     extended: true,
-    observance: { kind: "tithi-pervades", paksha, tithi, window: "sunrise", precedence: "udaya" },
+    observance: { kind: "tithi-pervades", paksha, tithi, window, precedence },
   });
   // full-moon (moonrise-vyāpti)
   const P = (id: string, displayName: string, month: string): FestivalRule => ({
@@ -937,15 +940,18 @@ export function oneOffFestivalRules(year: number): FestivalRule[] {
     T("jagannath-rath-yatra", "Jagannath Rath Yatra", "Ashadha", "shukla", 2),
     T("hariyali-teej", "Hariyali Teej", "Shravana", "shukla", 3),
     T("nag-panchami", "Nag Panchami", "Shravana", "shukla", 5),
-    T("kajari-teej", "Kajari Teej", "Bhadrapada", "krishna", 3),
+    // Kajari Teej — evening (candra) worship → pradoṣa-vyāpinī Tṛtīyā.
+    T("kajari-teej", "Kajari Teej", "Bhadrapada", "krishna", 3, "pradosha", "max-window-fraction"),
     T("balram-jayanti", "Balram Jayanti", "Bhadrapada", "krishna", 6),
     T("hartalika-teej", "Hartalika Teej", "Bhadrapada", "shukla", 3),
-    T("rishi-panchami", "Rishi Panchami", "Bhadrapada", "shukla", 5),
+    // Rishi Panchami — canonically madhyāhna-vyāpinī (midday) Pañcamī.
+    T("rishi-panchami", "Rishi Panchami", "Bhadrapada", "shukla", 5, "madhyahna", "max-window-fraction"),
     T("anant-chaturdashi", "Anant Chaturdashi", "Bhadrapada", "shukla", 14),
     P("pitru-paksha-begins", "Pitru Paksha Begins (Bhadrapada Purnima)", "Bhadrapada"),
     T("kalparambha", "Kalparambha", "Ashwina", "shukla", 6),
     T("navpatrika-puja", "Navpatrika Puja", "Ashwina", "shukla", 7),
-    T("ahoi-ashtami", "Ahoi Ashtami", "Kartika", "krishna", 8),
+    // Ahoi Ashtami — fast broken at evening star-sight → pradoṣa-vyāpinī Aṣṭamī.
+    T("ahoi-ashtami", "Ahoi Ashtami", "Kartika", "krishna", 8, "pradosha", "max-window-fraction"),
     T("kansh-vadh", "Kansh Vadh", "Kartika", "shukla", 10),
     T("tulsi-vivah", "Tulsi Vivah", "Kartika", "shukla", 12),
     P("dattatreya-jayanti", "Dattatreya Jayanti", "Margashirsha"),
