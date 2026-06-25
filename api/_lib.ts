@@ -18,9 +18,14 @@ import {
   dailyPanchanga,
   computeFestivals,
   allRules,
+  CORE_RULES,
+  oneOffFestivalRules,
+  regionalFestivalRules,
+  CHHATH_RULE,
   lunarEclipses,
   solarEclipses,
   type GeoLocation,
+  type FestivalRule,
 } from "../dist/index.js";
 
 /** Named location presets so callers can pass `?place=calgary` instead of coords. */
@@ -39,9 +44,12 @@ export type Query = Record<string, string | string[] | undefined>;
 
 export interface ApiResult {
   status: number;
+  /** An object (serialised to JSON by the adapter) or a ready-made string. */
   body: unknown;
   /** Seconds for the Cache-Control max-age (the engine is deterministic). */
   cacheSeconds: number;
+  /** Overrides the default `application/json` (e.g. `text/calendar` for .ics). */
+  contentType?: string;
 }
 
 /** A request error carrying an HTTP status; caught at the top of `handle`. */
@@ -113,10 +121,71 @@ const USAGE = {
     "GET /api/panchanga": "?date=YYYY-MM-DD (default today) & (place=<name> | lat&lng&tz)",
     "GET /api/festivals": "?year=YYYY (default current) & (place=<name> | lat&lng&tz)",
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<name> | lat&lng&tz)",
+    "GET /api/calendar.ics": "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) — subscribable iCalendar feed",
   },
   places: Object.keys(PRESETS),
   source: "https://github.com/SODIYAL/panchanga",
 };
+
+/** Which festivals an ICS feed carries. Default = the named festivals a temple
+ *  calendar shows; "all" adds the twice-monthly recurring vratas; "core" = §4. */
+function rulesForSet(set: string, year: number): FestivalRule[] {
+  if (set === "all") return allRules(year);
+  if (set === "core") return CORE_RULES;
+  return [...CORE_RULES, ...oneOffFestivalRules(year), ...regionalFestivalRules(year), CHHATH_RULE];
+}
+
+const nextDay = (date: string): string => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Escape an iCalendar TEXT value (RFC 5545 §3.3.11). */
+const icsEscape = (s: string): string =>
+  s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+
+/** Fold a content line at 75 octets (RFC 5545 §3.1). */
+function fold(line: string): string {
+  if (line.length <= 75) return line;
+  const out: string[] = [];
+  let s = line;
+  while (s.length > 75) {
+    out.push(s.slice(0, 75));
+    s = " " + s.slice(75);
+  }
+  out.push(s);
+  return out.join("\r\n");
+}
+
+/** Build an iCalendar document of all-day festival events. */
+function buildIcs(calName: string, events: { id: string; name: string; date: string }[]): string {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//HSNA//panchanga//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:${icsEscape(calName)}`,
+    "REFRESH-INTERVAL;VALUE=DURATION:PT24H",
+    "X-PUBLISHED-TTL:PT24H",
+  ];
+  for (const e of events) {
+    const d = e.date.replace(/-/g, "");
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${e.id}-${e.date}@panchanga`,
+      `DTSTAMP:${d}T000000Z`,
+      `DTSTART;VALUE=DATE:${d}`,
+      `DTEND;VALUE=DATE:${nextDay(e.date).replace(/-/g, "")}`,
+      `SUMMARY:${icsEscape(e.name)}`,
+      "TRANSP:TRANSPARENT",
+      "END:VEVENT",
+    );
+  }
+  lines.push("END:VCALENDAR");
+  return lines.map(fold).join("\r\n") + "\r\n";
+}
 
 /**
  * Resolve a request to a JSON response. `now` (a `{ today, year }` pair) is
@@ -151,6 +220,30 @@ export function handle(path: string, query: Query, now: { today: string; year: n
           body: { year, location: loc, lunar: lunarEclipses(year, loc), solar: solarEclipses(year, loc) },
           cacheSeconds: 604_800,
         };
+      }
+      case "calendar": {
+        const loc = resolveLocation(query);
+        const set = (first(query, "set") ?? "major").toLowerCase();
+        // A single year if pinned, else a rolling current+next year so a
+        // subscriber always has upcoming festivals without re-subscribing.
+        const years = first(query, "year") ? [resolveYear(query, now.year)] : [now.year, now.year + 1];
+        const seen = new Set<string>();
+        const events: { id: string; name: string; date: string }[] = [];
+        for (const y of years) {
+          const rules = rulesForSet(set, y);
+          const names = new Map(rules.map((r) => [r.id, r.displayName]));
+          for (const r of computeFestivals(y, loc, { rules }).results) {
+            if (!r.date) continue;
+            const uid = `${r.id}-${r.date}`;
+            if (seen.has(uid)) continue;
+            seen.add(uid);
+            events.push({ id: r.id, name: names.get(r.id) ?? r.id, date: r.date });
+          }
+        }
+        events.sort((a, b) => a.date.localeCompare(b.date));
+        const place = (loc as { name?: string }).name ?? `${loc.latitude},${loc.longitude}`;
+        const ics = buildIcs(`HSNA Festivals — ${place}`, events);
+        return { status: 200, body: ics, contentType: "text/calendar; charset=utf-8", cacheSeconds: 86_400 };
       }
       case "api":
       case "":

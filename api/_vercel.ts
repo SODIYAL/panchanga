@@ -19,13 +19,14 @@ interface VercelRes {
 export function serve(route: string, req: VercelReq, res: VercelRes): void {
   const now = new Date();
   const ctx = { today: now.toISOString().slice(0, 10), year: now.getUTCFullYear() };
-  const { status, body, cacheSeconds } = handle(route, req.query ?? {}, ctx);
+  const { status, body, cacheSeconds, contentType } = handle(route, req.query ?? {}, ctx);
 
-  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.setHeader("content-type", contentType ?? "application/json; charset=utf-8");
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader(
     "cache-control",
     cacheSeconds > 0 ? `public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}` : "no-store",
   );
-  res.status(status).send(JSON.stringify(body, null, 2));
+  // A string body (e.g. an .ics document) is sent verbatim; objects → JSON.
+  res.status(status).send(typeof body === "string" ? body : JSON.stringify(body, null, 2));
 }

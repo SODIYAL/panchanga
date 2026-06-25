@@ -151,8 +151,14 @@ engine is deterministic, so responses cache hard at the edge).
 GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
 GET /api/festivals?year=2026&place=calgary            → the year's festival dates
 GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
+GET /api/calendar.ics?place=calgary                  → subscribable iCalendar feed
 GET /api                                              → usage + the place presets
 ```
+
+The **`.ics` feed** is the zero-code path for end users: add the URL to Google/Apple
+Calendar once and the festivals appear (and stay current — the feed defaults to a rolling
+*current + next year* window). `?set=major` (default, the named festivals a temple shows),
+`?set=all` (every vrata too), or `?set=core` (the 24 §4 festivals).
 
 Location is either a `place` preset (`calgary`, `new-delhi`, `toronto`, …) or explicit
 `lat`, `lng` & `tz`:

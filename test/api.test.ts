@@ -63,6 +63,50 @@ describe("api /eclipses", () => {
   });
 });
 
+describe("api /calendar.ics", () => {
+  const vevents = (ics: string) => (ics.match(/BEGIN:VEVENT/g) ?? []).length;
+
+  it("returns a valid iCalendar document with text/calendar content-type", () => {
+    const r = call("/api/calendar", { place: "calgary" });
+    expect(r.status).toBe(200);
+    expect(r.contentType).toMatch(/text\/calendar/);
+    const ics = r.body as string;
+    expect(typeof ics).toBe("string");
+    expect(ics.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
+    expect(ics.trimEnd().endsWith("END:VCALENDAR")).toBe(true);
+    expect(ics).toContain("X-WR-CALNAME:HSNA Festivals — Calgary");
+    expect(ics.includes("\r\n")).toBe(true); // CRLF line endings
+  });
+
+  it("contains Diwali as an all-day event on the correct date", () => {
+    const ics = call("/api/calendar", { place: "calgary", year: "2026" }).body as string;
+    expect(ics).toContain("SUMMARY:Diwali / Lakshmi Puja");
+    expect(ics).toContain("DTSTART;VALUE=DATE:20261108");
+    expect(ics).toContain("UID:diwali-lakshmi-puja-2026-11-08@panchanga");
+  });
+
+  it("defaults to a rolling current+next year window", () => {
+    const ics = call("/api/calendar", { place: "calgary" }).body as string; // NOW.year = 2026
+    expect(ics).toMatch(/DTSTART;VALUE=DATE:2026/);
+    expect(ics).toMatch(/DTSTART;VALUE=DATE:2027/);
+  });
+
+  it("the `set` parameter scales coverage (core ⊂ major ⊂ all)", () => {
+    const core = call("/api/calendar", { place: "calgary", year: "2026", set: "core" }).body as string;
+    const major = call("/api/calendar", { place: "calgary", year: "2026", set: "major" }).body as string;
+    const all = call("/api/calendar", { place: "calgary", year: "2026", set: "all" }).body as string;
+    expect(vevents(core)).toBe(24); // the 24 §4 core festivals
+    expect(vevents(major)).toBeGreaterThan(vevents(core));
+    expect(vevents(all)).toBeGreaterThan(vevents(major));
+  });
+
+  it("400 for a bad place (error stays JSON, not ICS)", () => {
+    const r = call("/api/calendar", { place: "atlantis" });
+    expect(r.status).toBe(400);
+    expect(r.contentType).toBeUndefined();
+  });
+});
+
 describe("api validation", () => {
   it("usage at the root", () => {
     const r = call("/api");
