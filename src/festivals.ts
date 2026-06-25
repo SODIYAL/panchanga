@@ -44,6 +44,8 @@ import {
   NAKSHATRA_NAMES,
 } from "./elements.js";
 
+import { siderealSunRashi } from "./ayanamsha.js";
+
 import {
   type TimeWindow,
   validateLocation,
@@ -917,6 +919,53 @@ function resolveSolarArghya(
   return { day: chosen, instants };
 }
 
+/**
+ * Resolve a `nakshatra-pervades` observance: the civil day on which the Moon
+ * occupies the named nakṣatra at sunrise while the Sun is in `solarRashi`. We
+ * scan the solar month (from its ingress to the next rāśi's) and return the
+ * first day whose sunrise carries the target nakṣatra. (Onam = Śravaṇa in Siṃha.)
+ */
+function resolveNakshatraPervades(
+  obs: Extract<Observance, { kind: "nakshatra-pervades" }>,
+  year: number,
+  loc: GeoLocation,
+  diagnostics: string[],
+): { day: Date | null; instants: Record<string, string> } {
+  const instants: Record<string, string> = {};
+  const nakIdx = (NAKSHATRA_NAMES as readonly string[]).indexOf(obs.nakshatra);
+  if (nakIdx < 0) {
+    diagnostics.push(`nakshatra-pervades: unknown nakshatra "${obs.nakshatra}"`);
+    return { day: null, instants };
+  }
+  let start: Date;
+  let end: Date;
+  try {
+    start = solarIngress(year, obs.solarRashi);
+    end = solarIngress(year, (obs.solarRashi + 1) % 12);
+  } catch (e) {
+    diagnostics.push(`nakshatra-pervades: ${(e as Error).message}`);
+    return { day: null, instants };
+  }
+  // If the next ingress wrapped before `start` (Mīna→Mesha across the year
+  // boundary), the month runs into the next year — extend the scan window.
+  const endMs = end.getTime() > start.getTime() ? end.getTime() : start.getTime() + 32 * DAY_MS;
+  instants.solarMonthStart = iso(start);
+  let cursor = startOfLocalDayUTC(start, loc.timeZone);
+  for (let i = 0; i < 40 && cursor.getTime() < endMs; i++) {
+    const sr = riseSet("rise", cursor, loc);
+    if (sr && nakshatraAt(sr) === nakIdx && siderealSunRashi(sr) === obs.solarRashi) {
+      instants.sunrise = iso(sr);
+      instants.sunriseNakshatra = obs.nakshatra;
+      return { day: cursor, instants };
+    }
+    cursor = nextLocalDayStartUTC(cursor, loc.timeZone);
+  }
+  diagnostics.push(
+    `nakshatra-pervades: ${obs.nakshatra} not found at sunrise during the Sun's transit of rāśi ${obs.solarRashi} in ${year}`,
+  );
+  return { day: null, instants };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PART 3 — public compute API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -992,6 +1041,31 @@ export function computeFestival(
       }
       break;
     }
+    case "nakshatra-pervades": {
+      const r = resolveNakshatraPervades(obs, year, loc, diagnostics);
+      day = r.day;
+      instants = r.instants;
+      break;
+    }
+    case "weekday-relative": {
+      const baseRes = resolved?.get(obs.from);
+      if (!baseRes || !baseRes.date) {
+        diagnostics.push(
+          `weekday-relative: referenced rule "${obs.from}" ${baseRes ? "has no date" : "not found / not yet computed"}`,
+        );
+      } else {
+        // Latest `weekday` strictly before the anchor festival's date.
+        const d = new Date(`${baseRes.date}T12:00:00Z`);
+        do {
+          d.setUTCDate(d.getUTCDate() - 1);
+        } while (d.getUTCDay() !== obs.weekday);
+        const dateStr = d.toISOString().slice(0, 10);
+        instants.relativeTo = obs.from;
+        instants.anchorDate = baseRes.date;
+        return { id: rule.id, date: dateStr, instants, monthLabel: monthLabelFor(dateStr, loc), diagnostics };
+      }
+      break;
+    }
   }
 
   const date = day ? localDayString(day, loc.timeZone) : "";
@@ -1035,9 +1109,12 @@ export function computeFestivals(
   const topDiagnostics: string[] = [];
   const resolved = new Map<string, FestivalResult>();
 
-  // Two passes: non-derived first so derived `from` refs are available.
-  const nonDerived = rules.filter((r) => r.observance.kind !== "derived");
-  const derived = rules.filter((r) => r.observance.kind === "derived");
+  // Two passes: non-derived first so cross-referencing rules (derived offsets
+  // and weekday-relative anchors) can read their `from` festival's result.
+  const refsAnother = (r: FestivalRule): boolean =>
+    r.observance.kind === "derived" || r.observance.kind === "weekday-relative";
+  const nonDerived = rules.filter((r) => !refsAnother(r));
+  const derived = rules.filter(refsAnother);
 
   for (const rule of [...nonDerived, ...derived]) {
     // Per-rule isolation: an unexpected throw in one resolver must NOT abort the

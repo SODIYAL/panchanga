@@ -3,17 +3,18 @@
  * additional regional festivals & jayantis (regionalFestivalRules), 2026.
  *
  * EXPECTED dates are from Drik Panchang's Calgary calendar (geoname-id 5913490).
- * Every one of these 19 festivals matches Drik Calgary EXACTLY — each anchored
+ * Every one of these 21 festivals matches Drik Calgary EXACTLY — each anchored
  * on its ritual kāla: deity-birth jayantis on madhyāhna (Bhīṣma Aṣṭamī, Gaṅgā
  * Saptamī, Sītā Navamī) or pradoṣa/evening (Paraśurāma, Narasimha), tantric
  * observances on niśīta (Kālī Chaudas, Kālabhairava), snāna/vrata rites at
- * sunrise, the full-moon vrata at moonrise, and Vishwakarma on the Kanya
- * Saṅkrānti day.
+ * sunrise, the full-moon vrata at moonrise, Vishwakarma on the Kanya Saṅkrānti
+ * day, plus the two special selectors — Onam (Śravaṇa nakṣatra in Siṃha) and
+ * Varalakṣmī (the Friday before Śrāvaṇa Pūrṇimā).
  */
 
 import { describe, it, expect } from "vitest";
 import { computeFestivals } from "../src/festivals.js";
-import { regionalFestivalRules } from "../src/rules.js";
+import { allRules } from "../src/rules.js";
 import type { GeoLocation } from "../src/types.js";
 
 const CALGARY: GeoLocation = {
@@ -43,10 +44,15 @@ const DRIK_CALGARY: Record<string, string> = {
   "kali-chaudas": "2026-11-06",
   "kalabhairav-jayanti": "2026-11-30",
   "vivah-panchami": "2026-12-13",
+  // Special selectors: nakṣatra-anchored (Onam) and weekday-anchored (Varalakṣmī).
+  "onam": "2026-08-26", // Śravaṇa (Thiruvoṇam) nakṣatra, Sun in Siṃha
+  "varalakshmi-vrat": "2026-08-21", // Friday before Śrāvaṇa Pūrṇimā (Aug 27)
 };
 
+// Compute with the full rule set so cross-referencing rules resolve (Varalakṣmī
+// is anchored on the Śrāvaṇa-Pūrṇimā rule from a different generator).
 const engine = new Map(
-  computeFestivals(2026, CALGARY, { rules: regionalFestivalRules(2026) }).results.map((r) => [r.id, r.date]),
+  computeFestivals(2026, CALGARY, { rules: allRules(2026) }).results.map((r) => [r.id, r.date]),
 );
 
 describe("Calgary regional-festival conformance — 2026 vs Drik Panchang (geoname-id 5913490)", () => {
@@ -56,7 +62,7 @@ describe("Calgary regional-festival conformance — 2026 vs Drik Panchang (geona
     });
   }
 
-  it("every regional festival resolves and matches Drik Calgary exactly (19/19)", () => {
+  it("every regional festival resolves and matches Drik Calgary exactly (21/21)", () => {
     const ids = Object.keys(DRIK_CALGARY);
     const exact = ids.filter((id) => engine.get(id) === DRIK_CALGARY[id]).length;
     expect(exact).toBe(ids.length);

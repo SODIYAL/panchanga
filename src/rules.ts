@@ -1084,6 +1084,17 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
     // ── Mārgaśīrṣa ──
     T("kalabhairav-jayanti", "Kalabhairav Jayanti", "Margashirsha", "krishna", 8, "nishita", "max-window-fraction"),
     T("vivah-panchami", "Vivah Panchami", "Margashirsha", "shukla", 5),
+    // ── Nakṣatra- and weekday-anchored ──
+    // Onam — Śravaṇa (Thiruvoṇam) nakṣatra at sunrise while the Sun is in Siṃha.
+    {
+      id: "onam", displayName: "Onam (Thiruvonam)", category: "nakshatra", extended: true,
+      observance: { kind: "nakshatra-pervades", nakshatra: "Shravana", solarRashi: 4 },
+    },
+    // Varalakṣmī Vrat — the Friday (weekday 5) before Śrāvaṇa Pūrṇimā.
+    {
+      id: "varalakshmi-vrat", displayName: "Varalakshmi Vrat", category: "derived", extended: true,
+      observance: { kind: "weekday-relative", from: "purnima-snana-shravana", weekday: 5 },
+    },
   ];
 }
 

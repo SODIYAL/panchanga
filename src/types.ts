@@ -102,7 +102,19 @@ export type Observance =
   /** Sūrya-arghya festivals: tithi at sunset, and next sunrise (Chhath). */
   | { kind: "solar-arghya"; paksha: Paksha; tithi: TithiRef }
   /** Offset from another festival (Holi = Holikā +1). */
-  | { kind: "derived"; from: string; offsetDays: number };
+  | { kind: "derived"; from: string; offsetDays: number }
+  /**
+   * Nakṣatra-anchored solar-month festival: the day the Moon occupies
+   * `nakshatra` (at sunrise) while the Sun is in rāśi `solarRashi`. E.g. Onam =
+   * Śravaṇa (Thiruvoṇam) nakṣatra with the Sun in Siṃha.
+   */
+  | { kind: "nakshatra-pervades"; nakshatra: string; solarRashi: number }
+  /**
+   * Weekday-anchored relative to another festival: the latest `weekday`
+   * (0 = Sunday … 6 = Saturday) strictly before the `from` festival's date.
+   * E.g. Varalakṣmī Vrat = the Friday before Śrāvaṇa Pūrṇimā.
+   */
+  | { kind: "weekday-relative"; from: string; weekday: number };
 
 // ───────────────────────────────────────────────────────────────────────────
 // The authored rule
@@ -119,7 +131,7 @@ export type FestivalRule = {
    * / moonrise / solar-arghya rules it is required to anchor the lunation.
    */
   month?: { purnimanta: string };
-  category: "lunar-tithi" | "solar" | "moonrise" | "derived";
+  category: "lunar-tithi" | "solar" | "moonrise" | "derived" | "nakshatra";
   /** True if this is part of the §4b extended set. */
   extended?: boolean;
   observance: Observance;
