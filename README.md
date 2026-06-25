@@ -157,14 +157,15 @@ muhūrtas).
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data: `CORE_RULES` plus the generators
 `ekadashiRules`, `sankashtiRules`, `pradoshRules`, `masikShivaratriRules`,
-`purnimaVratRules`, `amavasyaRules`, `sankrantiRules` (each `(year)`), `CHHATH_RULE`,
-and `allRules(year)`. Grammar types: `Observance`, `FestivalRule`, `FestivalResult`,
-`Kala`, `TithiRef`, `Paksha`.
+`purnimaVratRules`, `amavasyaRules`, `sankrantiRules`, `oneOffFestivalRules` (each
+`(year)`), `CHHATH_RULE`, and `allRules(year)`. Grammar types: `Observance`,
+`FestivalRule`, `FestivalResult`, `Kala`, `TithiRef`, `Paksha`.
 
-`allRules(year)` covers ~140 observances: the 24 major festivals, every Ekādaśī,
-Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata, Amāvāsyā, Chhath, and
-all 12 Sankrāntis — validated against the HSNA 2026 calendar (the residual cases are
-±1-day convention edges, pinned in the tests).
+`allRules(year)` covers ~160 observances: the 24 major festivals, every Ekādaśī,
+Sankaṣṭī Caturthī, Pradoṣa Vrata, Masik Śivarātri, Pūrṇimā Vrata, Amāvāsyā, all 12
+Sankrāntis, Chhath, and ~22 regional festivals/jayantis (Ugadi, the Teej trio, Nag
+Panchami, Rath Yatra, Tulsi Vivah, Anant Chaturdashi, …) — validated against the HSNA
+2026 calendar (residual cases are ±1-day convention edges, pinned in the tests).
 
 ## The rule grammar
 

@@ -111,6 +111,7 @@ export {
   purnimaVratRules,
   amavasyaRules,
   sankrantiRules,
+  oneOffFestivalRules,
   CHHATH_RULE,
   allRules,
 } from "./rules.js";
