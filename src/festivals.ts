@@ -754,10 +754,11 @@ function resolveSolarIngress(
     diagnostics.push("solar-ingress: puṇya-kāla unavailable (polar?)");
   }
 
-  // The civil day is the puṇya-kāla day (which already encodes the
-  // after-sunset → next-day shift), else the ingress day.
-  const anchor = punya ? punya.start : moment;
-  const day = startOfLocalDayUTC(anchor, loc.timeZone);
+  // The Sankrānti's civil DATE is the ingress day — the day the Sun enters the
+  // rāśi (this is what panchāṅgas mark). The puṇya-kāla window recorded above
+  // still encodes the after-sunset → next-morning shift used for the snāna
+  // timing, so that information is preserved in the instants.
+  const day = startOfLocalDayUTC(moment, loc.timeZone);
   return { day, instants };
 }
 
