@@ -32,6 +32,8 @@ export {
   yamaganda,
   gulikaKala,
   abhijitMuhurta,
+  dayMuhurtas,
+  type DayMuhurtaWindows,
   sankrantiPunyaKala,
   type GeoLocation,
   type TimeWindow,

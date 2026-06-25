@@ -33,10 +33,7 @@ import {
   riseSet,
   sunset,
   moonrise,
-  rahuKala,
-  yamaganda,
-  gulikaKala,
-  abhijitMuhurta,
+  dayMuhurtas,
   VARA_NAMES,
   type TimeWindow,
 } from "./time.js";
@@ -146,11 +143,14 @@ export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
     yoga: { index: yb.index, name: YOGA_NAMES[yb.index], endsAt: yb.end.toISOString() },
     karana: { index: kb.index, name: kb.name, endsAt: kb.end.toISOString() },
     month: { purnimanta: lm.purnimantaLabel, amanta: lm.amantaLabel, paksha: lm.paksha },
-    muhurta: {
-      rahuKala: isoWindow(rahuKala(date, loc)),
-      yamaganda: isoWindow(yamaganda(date, loc)),
-      gulika: isoWindow(gulikaKala(date, loc)),
-      abhijit: isoWindow(abhijitMuhurta(date, loc)),
-    },
+    muhurta: (() => {
+      const m = dayMuhurtas(date, loc); // one dayArc, not four
+      return {
+        rahuKala: isoWindow(m.rahuKala),
+        yamaganda: isoWindow(m.yamaganda),
+        gulika: isoWindow(m.gulika),
+        abhijit: isoWindow(m.abhijit),
+      };
+    })(),
   };
 }
