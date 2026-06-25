@@ -5,10 +5,11 @@
  *
  * Convention (Muhūrta-Chintāmaṇi, as Drik Panchang displays it): Mukha = the
  * leading 1/6 of the Viṣṭi span (5 of a 30-ghaṭī karaṇa); Pucchā = the trailing
- * 1/10 (3 ghaṭī). Vāsa from the Moon's rāśi at Bhadra's start — svarga for
- * Meṣa/Vṛṣabha/Mithuna/Vṛścika, pātāla for Kanyā/Tulā/Dhanu/Makara, pṛthvī for
- * Karka/Siṃha/Kumbha/Mīna. The vāsa check below re-derives that verse
- * independently, so it is not circular with the table in the source.
+ * 1/10 (3 ghaṭī). Vāsa from the Moon's rāśi during Bhadra (sampled at the
+ * interval midpoint) — svarga for Meṣa/Vṛṣabha/Mithuna/Vṛścika, pātāla for
+ * Kanyā/Tulā/Dhanu/Makara, pṛthvī for Karka/Siṃha/Kumbha/Mīna. The vāsa check
+ * below re-derives that verse independently, so it is not circular with the
+ * table in the source.
  */
 
 import { describe, it, expect } from "vitest";
@@ -63,7 +64,10 @@ describe("bhadraSplit — Vāsa from the Moon's rāśi (classical verse)", () =>
     const seenVasa = new Set<string>();
     for (const iv of intervals) {
       const d = bhadraSplit(iv);
-      const rashi = Math.floor(siderealLongitude(iv.start, Body.Moon) / 30) % 12;
+      // Re-derive the rāśi at the same instant the implementation samples — the
+      // Bhadra midpoint — then check the vāsa verse independently of the table.
+      const mid = new Date((iv.start.getTime() + iv.end.getTime()) / 2);
+      const rashi = Math.floor(siderealLongitude(mid, Body.Moon) / 30) % 12;
       expect(d.moonRashi).toBe(rashi);
       expect(d.vasa).toBe(expectedVasa(rashi));
       seenVasa.add(d.vasa);

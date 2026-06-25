@@ -2,10 +2,13 @@
  * Tests for src/eclipses.ts — grahaṇa enumeration, local visibility, and sūtak.
  *
  * 2026 reference (astronomically fixed): two lunar eclipses (3 Mar total,
- * 28 Aug partial) and two solar (17 Feb annular, 12 Aug total). None are
- * visible from New Delhi; the 3 Mar total lunar is visible from the Americas
- * and the 12 Aug total solar from Spain — used to exercise the visible/sūtak
- * path.
+ * 28 Aug partial) and two solar (17 Feb annular, 12 Aug total). The 3 Mar total
+ * lunar is a MOONRISE eclipse from New Delhi (the Moon rises at 18:22 IST while
+ * the umbral phase runs to 18:47 IST, so its tail is visible) and is high in the
+ * sky from the Americas; the 28 Aug partial is not visible from New Delhi (Moon
+ * below the horizon throughout its umbral phase); the 12 Aug total solar is
+ * visible from Spain — together they exercise the visible/sūtak paths, including
+ * the moonrise case a peak-only altitude check would miss.
  */
 
 import { describe, it, expect } from "vitest";
@@ -42,10 +45,20 @@ describe("lunarEclipses(2026)", () => {
     expect(eclipses[1].total).toBeNull();
   });
 
-  it("is not visible from New Delhi (Moon below the horizon at peak) — no sūtak", () => {
-    const withLoc = lunarEclipses(2026, NEW_DELHI);
-    expect(withLoc.every((e) => e.visible === false)).toBe(true);
-    expect(withLoc.every((e) => e.sutak === null)).toBe(true);
+  it("counts the 3 Mar total as a MOONRISE eclipse from New Delhi (umbral tail visible as the Moon rises)", () => {
+    // Greatest eclipse (17:03 IST) is below the horizon, but the Moon rises at
+    // 18:22 IST while the umbral (partial) phase runs to 18:47 IST — ~25 min of
+    // the umbral eclipse is visible. A peak-only altitude check would wrongly
+    // call this "not visible"; sampling across the umbral phase catches it.
+    const total = lunarEclipses(2026, NEW_DELHI).find((e) => e.kind === "total")!;
+    expect(total.visible).toBe(true);
+    expect(total.sutak).not.toBeNull();
+  });
+
+  it("does NOT count the 28 Aug partial from New Delhi (Moon below the horizon all through the umbral phase)", () => {
+    const partial = lunarEclipses(2026, NEW_DELHI).find((e) => e.kind === "partial")!;
+    expect(partial.visible).toBe(false);
+    expect(partial.sutak).toBeNull();
   });
 
   it("is visible from Los Angeles, with sūtak starting 9h before umbral first contact", () => {

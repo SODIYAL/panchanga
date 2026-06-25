@@ -903,7 +903,7 @@ export function computeFestival(
 
   switch (obs.kind) {
     case "tithi-pervades": {
-      const r = resolveTithiPervades(obs, year, loc, rule.month.purnimanta, diagnostics);
+      const r = resolveTithiPervades(obs, year, loc, rule.month?.purnimanta ?? "", diagnostics);
       day = r.day;
       instants = r.instants;
       break;
@@ -915,13 +915,13 @@ export function computeFestival(
       break;
     }
     case "moonrise": {
-      const r = resolveMoonrise(obs, year, loc, rule.month.purnimanta, diagnostics);
+      const r = resolveMoonrise(obs, year, loc, rule.month?.purnimanta ?? "", diagnostics);
       day = r.day;
       instants = r.instants;
       break;
     }
     case "solar-arghya": {
-      const r = resolveSolarArghya(obs, year, loc, rule.month.purnimanta, diagnostics);
+      const r = resolveSolarArghya(obs, year, loc, rule.month?.purnimanta ?? "", diagnostics);
       day = r.day;
       instants = r.instants;
       break;
@@ -961,7 +961,7 @@ export function computeFestival(
     id: rule.id,
     date,
     instants,
-    monthLabel: date ? monthLabelFor(date, loc) : { purnimanta: rule.month.purnimanta, amanta: "" },
+    monthLabel: date ? monthLabelFor(date, loc) : { purnimanta: rule.month?.purnimanta ?? "", amanta: "" },
     diagnostics,
   };
 }
@@ -1009,7 +1009,7 @@ export function computeFestivals(
         id: rule.id,
         date: "",
         instants: {},
-        monthLabel: { purnimanta: rule.month.purnimanta, amanta: "" },
+        monthLabel: { purnimanta: rule.month?.purnimanta ?? "", amanta: "" },
         diagnostics: [`rule "${rule.id}" threw during resolution: ${(e as Error).message}`],
       };
     }
