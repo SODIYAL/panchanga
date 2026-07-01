@@ -831,11 +831,26 @@ function resolveSolarIngress(
     diagnostics.push("solar-ingress: puṇya-kāla unavailable (polar?)");
   }
 
-  // The Sankrānti's civil DATE is the ingress day — the day the Sun enters the
-  // rāśi (this is what panchāṅgas mark). The puṇya-kāla window recorded above
-  // still encodes the after-sunset → next-morning shift used for the snāna
-  // timing, so that information is preserved in the instants.
-  const day = startOfLocalDayUTC(moment, loc.timeZone);
+  // Observance DATE. For most saṅkrāntis it is the ingress day — the day the Sun
+  // enters the rāśi. But Makara Saṅkrānti's puṇya-kāla is reckoned FORWARD from
+  // the ingress moment and is valid only in daytime, so when the ingress falls
+  // after local sunset the puṇya-kāla (and the observance) move to the NEXT
+  // sunrise — Drik: "if Makar Sankranti happens after Sunset then all Punya Kaal
+  // activities are postponed till next day Sunrise," and it lists the Observation
+  // Date on the following day (e.g. New Delhi 2027: ingress 14 Jan 21:05 IST,
+  // after 17:45 IST sunset → observed 15 Jan). The before-type minor saṅkrāntis
+  // keep their puṇya-kāla in the ingress day's earlier daytime, so their date
+  // does not shift; only the after-moment Makara case is shifted here.
+  let day = startOfLocalDayUTC(moment, loc.timeZone);
+  if (obs.rashi === 9 /* Makara */) {
+    const ss = sunset(moment, loc);
+    if (ss && moment.getTime() > ss.getTime()) {
+      day = nextLocalDayStartUTC(day, loc.timeZone);
+      diagnostics.push(
+        "solar-ingress: Makara ingress after sunset — observance shifted to the puṇya-kāla day (next sunrise)",
+      );
+    }
+  }
   return { day, instants };
 }
 
