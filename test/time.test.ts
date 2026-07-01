@@ -158,6 +158,31 @@ describe("nextLocalDayStartUTC — DST transitions", () => {
   });
 });
 
+describe("nextLocalDayStartUTC — month-end rollover (regression: localMidnightUTC day-overflow)", () => {
+  // Passing day+1 into localMidnightUTC overflows the month at a month-end (e.g.
+  // day 32). Before the fix, in any UTC-offset ≥ 0 zone the overflow defeated the
+  // offset-sign guard and the result skipped a whole calendar day (May 31 → Jun 2,
+  // Jan 31 → Feb 2, Dec 31 → Jan 2, Feb 28 → Mar 2). Negative-offset zones were
+  // unaffected, which is why the Calgary conformance suite never caught it. Each
+  // case here must advance by exactly ONE local calendar day.
+  const cases: Array<[string, string, string]> = [
+    ["Asia/Kolkata", "2027-05-31", "2027-06-01"],
+    ["Asia/Kolkata", "2027-01-31", "2027-02-01"],
+    ["Asia/Kolkata", "2026-12-31", "2027-01-01"],
+    ["Asia/Kolkata", "2027-02-28", "2027-03-01"],
+    ["Asia/Kolkata", "2028-02-29", "2028-03-01"], // leap year
+    ["Australia/Sydney", "2027-05-31", "2027-06-01"], // far-east positive offset
+    ["Asia/Kathmandu", "2027-04-30", "2027-05-01"], // +5:45 fractional offset
+    ["America/Edmonton", "2027-05-31", "2027-06-01"], // negative offset (always worked)
+  ];
+  for (const [tz, day, nextDay] of cases) {
+    it(`${tz}: ${day} → ${nextDay}`, () => {
+      const cur = startOfLocalDayUTC(new Date(`${day}T12:00:00Z`), tz);
+      expect(localDayString(nextLocalDayStartUTC(cur, tz), tz)).toBe(nextDay);
+    });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // 2. rise/set vs Drik Panchang fixtures (< 2 minutes)
 // ---------------------------------------------------------------------------

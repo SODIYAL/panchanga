@@ -18,6 +18,27 @@
  */
 
 import type { FestivalRule } from "./types.js";
+import { newMoons, lunarMonth } from "./elements.js";
+
+/**
+ * The pūrṇimānta label of the adhika (leap) lunation in `year`, e.g.
+ * "Adhika Jyeshtha" (2026), "Adhika Chaitra" (2029), "Adhika Bhadrapada" (2031),
+ * or null when the year has no adhika month. Scans the year's lunations (the same
+ * new-moon walk the evaluator uses) and returns the śukla-pakṣa pūrṇimānta label
+ * of the one flagged adhika. The extended generators key their leap-month entries
+ * on this instead of a hardcoded month, so Padminī / Paramā Ekādaśī and the
+ * adhika vratas land in whatever month is actually intercalated that year — not
+ * only in the years whose leap month happens to be Jyeṣṭha.
+ */
+export function adhikaMonthLabel(year: number): string | null {
+  for (const nm of newMoons(year)) {
+    // Sample a few days into the lunation (śukla pakṣa) so the pūrṇimānta label
+    // equals the month's own name; a leap lunation reads "Adhika X".
+    const lm = lunarMonth(new Date(nm.getTime() + 5 * 86_400_000), { system: "purnimanta" });
+    if (lm.adhika) return lm.purnimantaLabel;
+  }
+  return null;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §4 — CORE RULES (24 festivals, calendar order)
@@ -212,7 +233,12 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: "purnima",
       window: "sunrise",
-      precedence: "max-window-fraction",
+      // Pūrṇimā-at-sunrise (udaya-vyāpinī), the same archetype as Hanuman Jayanti
+      // — observed on the day Pūrṇimā prevails at sunrise, not the larger
+      // window-fraction. (Identical to max-window-fraction across 2024-2030 at
+      // New Delhi and Calgary; unified to udaya for consistency with the other
+      // Pūrṇimā-at-sunrise rules.)
+      precedence: "udaya",
     },
   },
 
@@ -639,50 +665,29 @@ export function ekadashiRules(year: number): FestivalRule[] {
     });
   }
 
-  // Adhika Jyeshtha pair (present in 2026; generator is year-aware via
-  // the month label "Adhika Jyeshtha" which the evaluator normalizes and
-  // matches against the adhika lunation in the year's new-moon scan).
-  // These are only emitted when an adhika Jyeshtha is expected. For now we
-  // always emit them; the evaluator will return an empty date (with a
-  // diagnostic) for years without an adhika Jyeshtha, and the integration
-  // test checks the 2026 count. In a future revision, emit conditionally.
-  rules.push({
-    id: "ekadashi-adhika-jyeshtha-shukla",
-    displayName: ADHIKA_EKADASHI_NAMES.shukla,
-    month: { purnimanta: "Adhika Jyeshtha" },
-    category: "lunar-tithi",
-    extended: true,
-    meta: {
-      note: "Adhika Jyeshtha Shukla Ekadashi. Present in 2026; evaluator returns empty date with diagnostic in non-adhika years.",
-    },
-    observance: {
-      kind: "tithi-pervades",
-      paksha: "shukla",
-      tithi: 11,
-      window: "sunrise",
-      precedence: "udaya",
-    },
-  });
-
-  rules.push({
-    id: "ekadashi-adhika-jyeshtha-krishna",
-    displayName: ADHIKA_EKADASHI_NAMES.krishna,
-    month: { purnimanta: "Adhika Jyeshtha" },
-    category: "lunar-tithi",
-    extended: true,
-    meta: {
-      note: "Adhika Jyeshtha Krishna Ekadashi. Present in 2026; evaluator returns empty date with diagnostic in non-adhika years.",
-    },
-    observance: {
-      kind: "tithi-pervades",
-      paksha: "krishna",
-      tithi: 11,
-      window: "sunrise",
-      precedence: "udaya",
-    },
-  });
-
-  void year; // year parameter reserved for future conditional adhika emission
+  // Adhika-māsa pair — emitted only in a leap year, in the actual intercalated
+  // month (Adhika Jyeṣṭha 2026, Adhika Chaitra 2029, Adhika Bhādrapada 2031, …).
+  // Padminī = adhika-śukla Ekādaśī, Paramā = adhika-kṛṣṇa.
+  const adhika = adhikaMonthLabel(year);
+  if (adhika) {
+    const slug = monthSlug(adhika);
+    rules.push({
+      id: `ekadashi-${slug}-shukla`,
+      displayName: ADHIKA_EKADASHI_NAMES.shukla,
+      month: { purnimanta: adhika },
+      category: "lunar-tithi",
+      extended: true,
+      observance: { kind: "tithi-pervades", paksha: "shukla", tithi: 11, window: "sunrise", precedence: "udaya" },
+    });
+    rules.push({
+      id: `ekadashi-${slug}-krishna`,
+      displayName: ADHIKA_EKADASHI_NAMES.krishna,
+      month: { purnimanta: adhika },
+      category: "lunar-tithi",
+      extended: true,
+      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 11, window: "sunrise", precedence: "udaya" },
+    });
+  }
   return rules;
 }
 
@@ -720,24 +725,18 @@ export function sankashtiRules(year: number): FestivalRule[] {
     });
   }
 
-  // Adhika Jyeshtha Sankashti (present in 2026).
-  rules.push({
-    id: "sankashti-chaturthi-adhika-jyeshtha",
-    displayName: "Sankashti Chaturthi (Adhika Jyeshtha)",
-    month: { purnimanta: "Adhika Jyeshtha" },
-    category: "moonrise",
-    extended: true,
-    meta: {
-      note: "Adhika Jyeshtha Sankashti Chaturthi. Present in 2026; evaluator returns empty date with diagnostic in non-adhika years.",
-    },
-    observance: {
-      kind: "moonrise",
-      paksha: "krishna",
-      tithi: 4,
-    },
-  });
-
-  void year;
+  // Adhika-māsa Sankashti — emitted only in a leap year, in the actual month.
+  const adhika = adhikaMonthLabel(year);
+  if (adhika) {
+    rules.push({
+      id: `sankashti-chaturthi-${monthSlug(adhika)}`,
+      displayName: `Sankashti Chaturthi (${adhika})`,
+      month: { purnimanta: adhika },
+      category: "moonrise",
+      extended: true,
+      observance: { kind: "moonrise", paksha: "krishna", tithi: 4 },
+    });
+  }
   return rules;
 }
 
@@ -777,27 +776,28 @@ export const CHHATH_RULE: FestivalRule = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const PAKSHAS = ["shukla", "krishna"] as const;
-const ADHIKA = "Adhika Jyeshtha";
-const ADHIKA_NOTE = "Adhika-month entry; resolves to empty with a diagnostic in non-adhika years.";
+const ADHIKA_NOTE = "Adhika-month entry (leap month for this year).";
 
 /** Slugify a month label for an id: lower-case, spaces → hyphens. */
 const monthSlug = (month: string): string => month.toLowerCase().replace(/\s+/g, "-");
 
 /**
  * Shared scaffold for the recurring monthly vratas. Emits one rule per
- * pūrṇimānta month plus the trailing Adhika Jyeṣṭha entry (present in 2026; the
- * evaluator resolves it to an empty date with a diagnostic in non-adhika
- * years). `build(month, slug, adhika)` returns the rule(s) for one month —
- * `adhika` is true only on the Adhika pass, so callers attach `ADHIKA_NOTE`
- * (and any extra pakṣa fan-out) themselves. This collapses four near-identical
- * push-loop bodies into one.
+ * pūrṇimānta month, plus — only when `year` actually has a leap month — one entry
+ * for that year's real adhika lunation (Adhika Jyeṣṭha 2026, Adhika Chaitra 2029,
+ * …). `build(month, slug, adhika)` returns the rule(s) for one month; `adhika` is
+ * true only on the Adhika pass, so callers attach `ADHIKA_NOTE` (and any extra
+ * pakṣa fan-out) themselves. Non-leap years emit no adhika entry at all (rather
+ * than a fixed Adhika-Jyeṣṭha id that resolves to nothing).
  */
 function monthlyVrataRules(
   build: (month: string, slug: string, adhika: boolean) => FestivalRule[],
+  year: number,
 ): FestivalRule[] {
   const out: FestivalRule[] = [];
   for (const month of PURNIMANTA_MONTHS) out.push(...build(month, monthSlug(month), false));
-  out.push(...build(ADHIKA, monthSlug(ADHIKA), true));
+  const adhika = adhikaMonthLabel(year);
+  if (adhika) out.push(...build(adhika, monthSlug(adhika), true));
   return out;
 }
 
@@ -806,7 +806,6 @@ function monthlyVrataRules(
  * both pakṣas of every month. The (S)/(K) suffix marks śukla/kṛṣṇa.
  */
 export function pradoshRules(year: number): FestivalRule[] {
-  void year;
   return monthlyVrataRules((month, slug, adhika) =>
     PAKSHAS.map((paksha) => ({
       id: `pradosh-${slug}-${paksha}`,
@@ -817,6 +816,7 @@ export function pradoshRules(year: number): FestivalRule[] {
       ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
       observance: { kind: "tithi-pervades", paksha, tithi: 13, window: "pradosha", precedence: "max-window-fraction" },
     })),
+    year,
   );
 }
 
@@ -832,7 +832,6 @@ export function pradoshRules(year: number): FestivalRule[] {
  * does pervade, i.e. New Delhi and the other 11 months.)
  */
 export function masikShivaratriRules(year: number): FestivalRule[] {
-  void year;
   return monthlyVrataRules((month, slug, adhika) => [{
     id: `masik-shivaratri-${slug}`,
     displayName: `Masik Shivaratri (${month})`,
@@ -841,7 +840,7 @@ export function masikShivaratriRules(year: number): FestivalRule[] {
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
     observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 14, window: "nishita", precedence: "max-window-fraction", fallback: "nearest-window" },
-  }]);
+  }], year);
 }
 
 /**
@@ -857,7 +856,6 @@ export function masikShivaratriRules(year: number): FestivalRule[] {
  * proper udaya-with-fallback / vedha policy — tracked, not yet implemented.
  */
 export function purnimaVratRules(year: number): FestivalRule[] {
-  void year;
   return monthlyVrataRules((month, slug, adhika) => [{
     id: `purnima-vrat-${slug}`,
     displayName: `${month} Purnima Vrat`,
@@ -866,7 +864,7 @@ export function purnimaVratRules(year: number): FestivalRule[] {
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
     observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
-  }]);
+  }], year);
 }
 
 /**
@@ -877,7 +875,6 @@ export function purnimaVratRules(year: number): FestivalRule[] {
  * covers the rare month whose Pūrṇimā touches no sunrise.
  */
 export function purnimaSnanaRules(year: number): FestivalRule[] {
-  void year;
   return monthlyVrataRules((month, slug, adhika) => [{
     id: `purnima-snana-${slug}`,
     displayName: `${month} Purnima (Snana-Dana)`,
@@ -886,12 +883,22 @@ export function purnimaSnanaRules(year: number): FestivalRule[] {
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
     observance: { kind: "tithi-pervades", paksha: "shukla", tithi: "purnima", window: "sunrise", precedence: "udaya", fallback: "nearest-window" },
-  }]);
+  }], year);
 }
 
-/** Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month. */
+/**
+ * Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month.
+ *
+ * Āśvina Amāvāsyā is Sarva-Pitṛ / Mahālaya Amāvāsyā, the culmination of the
+ * pitṛ-pakṣa śrāddha. Pitṛ (ancestral) rites are **aparāhṇa-vyāpinī** — performed
+ * on the day Amāvāsyā prevails in the afternoon (Manusmṛti 3.278) — so this one
+ * keys on aparāhṇa, not sunrise. Whenever Amāvāsyā ends in the morning of the
+ * second day, the two rules diverge: Sarva-Pitṛ 2027 New Delhi is Sep 29
+ * (aparāhṇa-Amāvāsyā) though Amāvāsyā still prevails at the Sep 30 sunrise. The
+ * remaining Amāvāsyās are snāna/darśa-oriented (e.g. Māgha = Mauni, a prataḥ
+ * Gaṅgā-snāna) and keep the sunrise reckoning.
+ */
 export function amavasyaRules(year: number): FestivalRule[] {
-  void year;
   return monthlyVrataRules((month, slug, adhika) => [{
     id: `amavasya-${slug}`,
     displayName: `${month} Amavasya`,
@@ -899,8 +906,12 @@ export function amavasyaRules(year: number): FestivalRule[] {
     category: "lunar-tithi",
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
-    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
-  }]);
+    observance: {
+      kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya",
+      window: slug === "ashwina" ? "aparahna" : "sunrise",
+      precedence: "max-window-fraction",
+    },
+  }], year);
 }
 
 /**
@@ -1047,6 +1058,15 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
     id, displayName, month: { purnimanta: month }, category: "moonrise", extended: true,
     observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
   });
+  // Vat Sāvitrī (North) and Shani Jayanti fall on Jyeṣṭha Amāvāsyā. These are
+  // NOT pitṛ rites (unlike Sarva-Pitṛ, which is aparāhṇa), and their true nirṇaya
+  // — "the day Amāvāsyā, joined to the preceding Caturdaśī, prevails through the
+  // daytime" — is not captured cleanly by either a sunrise or an aparāhṇa window
+  // at all longitudes (aparāhṇa mis-selects at far-western longitudes, where the
+  // late-afternoon window clips only the START of an evening-beginning Amāvāsyā).
+  // Kept on the sunrise reckoning, which matches Drik Calgary; the residual New
+  // Delhi ±1 in years where Amāvāsyā begins mid-morning (e.g. 2025 → engine May
+  // 27 vs May 26) is a documented limitation pending a proper daytime-vyāpti rule.
   const A = (id: string, displayName: string, month: string): FestivalRule => ({
     id, displayName, month: { purnimanta: month }, category: "lunar-tithi", extended: true,
     observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },

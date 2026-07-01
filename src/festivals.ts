@@ -153,19 +153,6 @@ function tithiLiveAt(interval: { start: Date; end: Date }, t: Date): boolean {
   return interval.start.getTime() <= t.getTime() && interval.end.getTime() > t.getTime();
 }
 
-/**
- * Temporal gap (ms, ≥0) between the tithi interval and the kāla window: 0 if
- * they overlap, otherwise the size of the bare interval separating them. Used by
- * the `nearest-window` fallback to pick the candidate whose window sits closest
- * to the tithi when none actually pervades.
- */
-function tithiWindowGap(c: PervasionCandidate): number {
-  const t = c.tithiInterval;
-  const w = c.window;
-  if (overlapMs(t, w) > 0) return 0;
-  return Math.max(w.start.getTime() - t.end.getTime(), t.start.getTime() - w.end.getTime());
-}
-
 /** Is the tithi live at the window's start instant (udaya)? */
 function presentAtStart(c: PervasionCandidate): boolean {
   return tithiLiveAt(c.tithiInterval, c.window.start);
@@ -309,12 +296,33 @@ export function selectDayByPervasion(
     // current going into that night. Resolved here (we hold the candidates),
     // so the caller receives a chosen day rather than a previous/next-day shift.
     if (opts.fallback === "nearest-window" && pool.length > 0) {
-      const nearest = pool.reduce((best, c) => (tithiWindowGap(c) < tithiWindowGap(best) ? c : best));
+      // No window pervades: observe on the day the tithi is most CURRENT — the
+      // candidate civil day that holds the largest portion of the tithi. A tithi
+      // that straddles two sunrises/midnights without covering the ritual window
+      // (a niśīta Caturdaśī at a far-western longitude, a Pūrṇimā that misses
+      // both sunrises) belongs to the day it *spans*, not merely the day whose
+      // window sits closest in clock-time. Ranking by the smaller window-gap
+      // picked the wrong side when the tithi ended just before the next day's
+      // window (e.g. Kārtik Pūrṇimā at Calgary: tithi ends 14 min before the Nov
+      // 24 sunrise, yet the observance is Nov 23, the day Pūrṇimā is current all
+      // afternoon). Civil-day bounds come from the consecutive candidate
+      // midnights; the last day is bounded by +24h (a tithi is < 27h, so the
+      // relative ranking is unaffected). Ties fall to the earlier day (the
+      // day-sorted reduce keeps the first max).
+      const dayMs = ordered.map((c) => c.day.getTime());
+      const civilDayOverlap = (c: PervasionCandidate): number => {
+        const i = dayMs.indexOf(c.day.getTime());
+        const end = i >= 0 && i + 1 < dayMs.length ? dayMs[i + 1] : c.day.getTime() + DAY_MS;
+        return overlapMs(c.tithiInterval, { start: c.day, end: new Date(end) });
+      };
+      const chosen = pool.reduce((best, c) =>
+        (civilDayOverlap(c) > civilDayOverlap(best) ? c : best),
+      );
       diagnostics.push(
-        "fallback(nearest-window): tithi pervaded no candidate window; chose the day whose window is nearest the tithi",
+        "fallback(nearest-window): tithi pervaded no candidate window; chose the day that holds the largest portion of the tithi",
       );
       return {
-        chosen: nearest,
+        chosen,
         coverageFraction: 0,
         fallbackApplied: "nearest-window",
         bhadraOverlap: null,
@@ -699,10 +707,17 @@ function resolveTithiPervades(
       );
       continue;
     }
-    // Nakshatra fact at the window's anchor instant (its start).
+    // Nakshatra fact at the anchor instant of the nakshatra's OWN window when the
+    // rule names one (e.g. Janmāṣṭamī checks Rohiṇī at niśīta), falling back to the
+    // tithi window otherwise. Previously the nakshatra was always read at the
+    // tithi window, so `nakshatra.window` was ignored — harmless only because the
+    // sole nakshatra rule happens to use the same window for both.
     let nakshatraOk: boolean | undefined;
     if (obs.nakshatra) {
-      const idx = nakshatraAt(win.start);
+      const nakWin = obs.nakshatra.window
+        ? kalaWindow(obs.nakshatra.window, dayMidnight, loc)
+        : win;
+      const idx = nakshatraAt((nakWin ?? win).start);
       nakshatraOk = NAKSHATRA_NAMES[idx] === obs.nakshatra.name;
     }
     // Bhadra overlap with the window, if requested. We record BOTH the first
@@ -753,7 +768,14 @@ function resolveTithiPervades(
     precedence: obs.precedence,
     nakshatra: obs.nakshatra?.mode,
     avoidKarana: obs.avoidKarana,
-    fallback: obs.fallback,
+    // Never silently drop: when a rule specifies no fallback and the tithi
+    // pervades the ritual window on NO candidate day (e.g. a niśīta Caturdaśī or
+    // a pradoṣa/sunrise tithi that straddles the window at a far-western/eastern
+    // longitude), resolve to the day that holds the largest portion of the tithi
+    // instead of returning no date. `nearest-window` only fires on total
+    // non-pervasion, so it cannot change a day the tithi actually pervades.
+    // A required-nakshatra wipeout is handled separately and still yields no date.
+    fallback: obs.fallback ?? "nearest-window",
   });
   for (const d of sel.diagnostics) diagnostics.push(d);
 
@@ -816,11 +838,26 @@ function resolveSolarIngress(
     diagnostics.push("solar-ingress: puṇya-kāla unavailable (polar?)");
   }
 
-  // The Sankrānti's civil DATE is the ingress day — the day the Sun enters the
-  // rāśi (this is what panchāṅgas mark). The puṇya-kāla window recorded above
-  // still encodes the after-sunset → next-morning shift used for the snāna
-  // timing, so that information is preserved in the instants.
-  const day = startOfLocalDayUTC(moment, loc.timeZone);
+  // Observance DATE. For most saṅkrāntis it is the ingress day — the day the Sun
+  // enters the rāśi. But Makara Saṅkrānti's puṇya-kāla is reckoned FORWARD from
+  // the ingress moment and is valid only in daytime, so when the ingress falls
+  // after local sunset the puṇya-kāla (and the observance) move to the NEXT
+  // sunrise — Drik: "if Makar Sankranti happens after Sunset then all Punya Kaal
+  // activities are postponed till next day Sunrise," and it lists the Observation
+  // Date on the following day (e.g. New Delhi 2027: ingress 14 Jan 21:05 IST,
+  // after 17:45 IST sunset → observed 15 Jan). The before-type minor saṅkrāntis
+  // keep their puṇya-kāla in the ingress day's earlier daytime, so their date
+  // does not shift; only the after-moment Makara case is shifted here.
+  let day = startOfLocalDayUTC(moment, loc.timeZone);
+  if (obs.rashi === 9 /* Makara */) {
+    const ss = sunset(moment, loc);
+    if (ss && moment.getTime() > ss.getTime()) {
+      day = nextLocalDayStartUTC(day, loc.timeZone);
+      diagnostics.push(
+        "solar-ingress: Makara ingress after sunset — observance shifted to the puṇya-kāla day (next sunrise)",
+      );
+    }
+  }
   return { day, instants };
 }
 
@@ -850,20 +887,68 @@ function resolveMoonrise(
       return { day: dayMidnight, instants };
     }
   }
-  // No moonrise fell inside the tithi: fall back to the day whose moonrise is
-  // nearest after the tithi start (best-effort) and record a diagnostic.
+  // No moonrise falls inside the tithi. The correct day then depends on the RITE,
+  // and the two moonrise rites pull opposite ways:
+  //
+  //  • Pūrṇimā evening worship (Pūrṇimā Vrat, full-moon jayantis): the full moon
+  //    is worshipped on the night it is up while Pūrṇimā is current, so take the
+  //    day of the LATEST moonrise that still precedes the tithi's end (the moon
+  //    already risen as/just before Pūrṇimā runs). Chaitra Pūrṇimā at Calgary:
+  //    Mar 31 moonrise 18:59 (Pūrṇimā from 19:37) vs Apr 1 moonrise 20:14 (2 min
+  //    after Pūrṇimā ends) → Mar 31.
+  //  • Caturthī/Caturdaśī fasts (Karva Chauth, Sankaṣṭī): one fasts THROUGH the
+  //    tithi and sights the moon that evening to break it — the moon may rise a
+  //    little after the tithi has passed — so take the day of the EARLIEST
+  //    moonrise at or after the tithi's start. Karva Chauth 2025 New Delhi: the
+  //    Oct 10 moonrise 20:13 (34 min after Caturthī) breaks the Oct 10 fast, not
+  //    the Oct 9 moonrise 19:23 that precedes the tithi entirely.
+  //
+  // If the preferred side has no moonrise, fall back to the nearest moonrise.
+  const startMs = interval.start.getTime();
+  const endMs = interval.end.getTime();
+  const distToInterval = (mr: Date): number => {
+    const t = mr.getTime();
+    return t < startMs ? startMs - t : t >= endMs ? t - endMs : 0;
+  };
+  const withMr = days
+    .map((day) => ({ day, mr: moonrise(day, loc) }))
+    .filter((x): x is { day: Date; mr: Date } => x.mr !== null);
+  const worship = obs.tithi === "purnima";
+  const preferred = worship
+    ? withMr.filter((x) => x.mr.getTime() < endMs) // moon up before Pūrṇimā ends
+    : withMr.filter((x) => x.mr.getTime() >= startMs); // moon sighted at/after the tithi
+  const pickLatest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (x.mr.getTime() > b.mr.getTime() ? x : b));
+  const pickEarliest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (x.mr.getTime() < b.mr.getTime() ? x : b));
+  const pickNearest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (distToInterval(x.mr) < distToInterval(b.mr) ? x : b));
   let best: { day: Date; mr: Date } | null = null;
-  for (const dayMidnight of days) {
-    const mr = moonrise(dayMidnight, loc);
-    if (!mr) continue;
-    if (!best || mr.getTime() < best.mr.getTime()) best = { day: dayMidnight, mr };
-  }
+  if (preferred.length > 0) best = worship ? pickLatest(preferred) : pickEarliest(preferred);
+  else if (withMr.length > 0) best = pickNearest(withMr);
   if (best) {
     instants.moonrise = iso(best.mr);
-    diagnostics.push("moonrise: tithi not live at any moonrise; used nearest moonrise day");
+    diagnostics.push(
+      `moonrise: tithi live at no moonrise; observed on the ${worship ? "Pūrṇimā-moon-worship" : "fast-sighting"} day`,
+    );
     return { day: best.day, instants };
   }
-  diagnostics.push("moonrise: no moonrise on any candidate day (polar?)");
+  // No moonrise on any touched day (a high-latitude lunation where the moon skips
+  // the single civil day the short tithi occupies). Never drop: observe on the
+  // day holding the largest portion of the tithi (the vrata/fast day); the moon
+  // is sighted late that night. Only a genuinely empty candidate set yields null.
+  if (days.length > 0) {
+    const daysMs = days.map((d) => d.getTime());
+    const overlap = (i: number): number => {
+      const e = i + 1 < daysMs.length ? daysMs[i + 1] : daysMs[i] + DAY_MS;
+      return Math.max(0, Math.min(endMs, e) - Math.max(startMs, daysMs[i]));
+    };
+    let bi = 0;
+    for (let i = 1; i < days.length; i++) if (overlap(i) > overlap(bi)) bi = i;
+    diagnostics.push("moonrise: no moonrise on any candidate day; observed on the day holding the largest portion of the tithi");
+    return { day: days[bi], instants };
+  }
+  diagnostics.push("moonrise: no candidate day (polar?)");
   return { day: null, instants };
 }
 

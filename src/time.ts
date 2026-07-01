@@ -147,6 +147,19 @@ function tzParts(
  * measured at the resulting instant, not estimated.
  */
 function localMidnightUTC(year: number, month: number, day: number, tz: string): Date {
+  // Normalize the target calendar date first. `nextLocalDayStartUTC` calls this
+  // with `day + 1`, which overflows the month at a month-end (e.g. day 32). The
+  // `Date.UTC` guess below already rolls such an overflow into the next month —
+  // but the offset-sign guard further down compares the read-back day against the
+  // raw `day`, so an un-normalized 32 never matches (32 ≠ 1), the guard wrongly
+  // takes the negative-offset branch, and the result is advanced a full extra
+  // day. In any UTC-offset ≥ 0 zone (IST, Nepal, Sydney, …) this silently skipped
+  // the 1st of every month. Normalizing (year, month, day) here makes the guard
+  // compare like-for-like and fixes the skip.
+  const norm = new Date(Date.UTC(year, month - 1, day));
+  year = norm.getUTCFullYear();
+  month = norm.getUTCMonth() + 1;
+  day = norm.getUTCDate();
   // Guess: UTC midnight of the given calendar date (as if offset = 0).
   const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   // Read back the local date/time at this UTC instant.

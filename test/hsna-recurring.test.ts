@@ -68,7 +68,12 @@ const CATEGORIES: Record<string, Category> = {
       "2026-05-30", "2026-06-29", "2026-07-29", "2026-08-27", "2026-09-26",
       "2026-10-25", "2026-11-24", "2026-12-23",
     ],
-    knownDiffs: ["2026-05-01", "2026-07-29"],
+    // Vaiśākha Pūrṇimā now resolves exactly to HSNA's 2026-05-01 (the full moon
+    // rises during Pūrṇimā on May 1 at New Delhi). Before the localMidnightUTC
+    // month-end-day-skip fix, Apr 30 (month-end) skipped May 1 as a candidate and
+    // the vrata landed a day early — so 2026-05-01 was formerly a ±1 diff. Only
+    // Āṣāḍha (engine 07-28 vs HSNA 07-29) remains a genuine ±1 edge.
+    knownDiffs: ["2026-07-29"],
   },
   "Amavasya": {
     prefix: "amavasya-",
@@ -108,7 +113,10 @@ describe("HSNA 2026 recurring-vrata conformance", () => {
     const PRODUCED: Record<string, number> = {
       "sankranti-": 10,
       "masik-shivaratri-": 13,
-      "pradosh-": 25,
+      // 26 after the localMidnightUTC month-end fix: Phālguna Śukla pradoṣa
+      // (Trayodaśī ≈ Mar 1, before Holika Mar 3) was formerly dropped to (none)
+      // because its Feb-28 month-end candidate skipped Mar 1; it now resolves.
+      "pradosh-": 26,
       "purnima-vrat-": 13,
       "amavasya-": 13,
     };
