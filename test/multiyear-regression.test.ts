@@ -90,3 +90,18 @@ describe("adhika-māsa observances land in the year's actual leap month", () => 
     expect(ekadashiRules(2027).filter((r) => /adhika/i.test(r.id))).toHaveLength(0);
   });
 });
+
+describe("Vat Sāvitrī / Shani Jayanti use daytime-vyāpti (day Amāvāsyā prevails through daylight)", () => {
+  // Not pitṛ rites: day-long observances on the day whose daylight holds the
+  // larger portion of Jyeṣṭha Amāvāsyā. A plain sunrise rule mis-dated the year
+  // where Amāvāsyā ends mid-morning (2025 New Delhi), and an aparāhṇa rule
+  // mis-selected at far-western longitudes (Calgary, where the late-afternoon
+  // window clips only the start of an evening-beginning Amāvāsyā).
+  it("2025 New Delhi → May 26 (Amāvāsyā fills the afternoon), not May 27", () => {
+    expect(dateOf(2025, DELHI, "vat-savitri-vrat")).toBe("2025-05-26");
+    expect(dateOf(2025, DELHI, "shani-jayanti")).toBe("2025-05-26");
+  });
+  it("2024 New Delhi → Jun 6 (= Drik)", () => {
+    expect(dateOf(2024, DELHI, "vat-savitri-vrat")).toBe("2024-06-06");
+  });
+});

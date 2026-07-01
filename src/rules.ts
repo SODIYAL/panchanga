@@ -1058,18 +1058,19 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
     id, displayName, month: { purnimanta: month }, category: "moonrise", extended: true,
     observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
   });
-  // Vat Sāvitrī (North) and Shani Jayanti fall on Jyeṣṭha Amāvāsyā. These are
-  // NOT pitṛ rites (unlike Sarva-Pitṛ, which is aparāhṇa), and their true nirṇaya
-  // — "the day Amāvāsyā, joined to the preceding Caturdaśī, prevails through the
-  // daytime" — is not captured cleanly by either a sunrise or an aparāhṇa window
-  // at all longitudes (aparāhṇa mis-selects at far-western longitudes, where the
-  // late-afternoon window clips only the START of an evening-beginning Amāvāsyā).
-  // Kept on the sunrise reckoning, which matches Drik Calgary; the residual New
-  // Delhi ±1 in years where Amāvāsyā begins mid-morning (e.g. 2025 → engine May
-  // 27 vs May 26) is a documented limitation pending a proper daytime-vyāpti rule.
+  // Vat Sāvitrī (North) and Shani Jayanti fall on Jyeṣṭha Amāvāsyā. These are NOT
+  // pitṛ rites (unlike Sarva-Pitṛ, which is aparāhṇa) — they are day-long
+  // observances whose nirṇaya is "the day Amāvāsyā, joined to the preceding
+  // Caturdaśī, prevails through the DAYTIME." Modelled as the `daytime`
+  // ([sunrise, sunset]) window with max-window-fraction: the day whose daylight
+  // holds the larger portion of Amāvāsyā wins. This resolves both a sunrise rule
+  // (wrong when Amāvāsyā ends mid-morning: New Delhi 2025 → May 26, not May 27)
+  // and an aparāhṇa rule (which mis-selects at far-western longitudes: Calgary
+  // 2026 → May 16, not May 15, where the late-afternoon aparāhṇa clips only the
+  // start of an evening-beginning Amāvāsyā).
   const A = (id: string, displayName: string, month: string): FestivalRule => ({
     id, displayName, month: { purnimanta: month }, category: "lunar-tithi", extended: true,
-    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
+    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "daytime", precedence: "max-window-fraction" },
   });
   const SI = (id: string, displayName: string, rashi: number): FestivalRule => ({
     id, displayName, category: "solar", extended: true,
