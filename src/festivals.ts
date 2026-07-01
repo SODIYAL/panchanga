@@ -865,17 +865,50 @@ function resolveMoonrise(
       return { day: dayMidnight, instants };
     }
   }
-  // No moonrise fell inside the tithi: fall back to the day whose moonrise is
-  // nearest after the tithi start (best-effort) and record a diagnostic.
+  // No moonrise falls inside the tithi. The correct day then depends on the RITE,
+  // and the two moonrise rites pull opposite ways:
+  //
+  //  • Pūrṇimā evening worship (Pūrṇimā Vrat, full-moon jayantis): the full moon
+  //    is worshipped on the night it is up while Pūrṇimā is current, so take the
+  //    day of the LATEST moonrise that still precedes the tithi's end (the moon
+  //    already risen as/just before Pūrṇimā runs). Chaitra Pūrṇimā at Calgary:
+  //    Mar 31 moonrise 18:59 (Pūrṇimā from 19:37) vs Apr 1 moonrise 20:14 (2 min
+  //    after Pūrṇimā ends) → Mar 31.
+  //  • Caturthī/Caturdaśī fasts (Karva Chauth, Sankaṣṭī): one fasts THROUGH the
+  //    tithi and sights the moon that evening to break it — the moon may rise a
+  //    little after the tithi has passed — so take the day of the EARLIEST
+  //    moonrise at or after the tithi's start. Karva Chauth 2025 New Delhi: the
+  //    Oct 10 moonrise 20:13 (34 min after Caturthī) breaks the Oct 10 fast, not
+  //    the Oct 9 moonrise 19:23 that precedes the tithi entirely.
+  //
+  // If the preferred side has no moonrise, fall back to the nearest moonrise.
+  const startMs = interval.start.getTime();
+  const endMs = interval.end.getTime();
+  const distToInterval = (mr: Date): number => {
+    const t = mr.getTime();
+    return t < startMs ? startMs - t : t >= endMs ? t - endMs : 0;
+  };
+  const withMr = days
+    .map((day) => ({ day, mr: moonrise(day, loc) }))
+    .filter((x): x is { day: Date; mr: Date } => x.mr !== null);
+  const worship = obs.tithi === "purnima";
+  const preferred = worship
+    ? withMr.filter((x) => x.mr.getTime() < endMs) // moon up before Pūrṇimā ends
+    : withMr.filter((x) => x.mr.getTime() >= startMs); // moon sighted at/after the tithi
+  const pickLatest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (x.mr.getTime() > b.mr.getTime() ? x : b));
+  const pickEarliest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (x.mr.getTime() < b.mr.getTime() ? x : b));
+  const pickNearest = (xs: typeof withMr) =>
+    xs.reduce((b, x) => (distToInterval(x.mr) < distToInterval(b.mr) ? x : b));
   let best: { day: Date; mr: Date } | null = null;
-  for (const dayMidnight of days) {
-    const mr = moonrise(dayMidnight, loc);
-    if (!mr) continue;
-    if (!best || mr.getTime() < best.mr.getTime()) best = { day: dayMidnight, mr };
-  }
+  if (preferred.length > 0) best = worship ? pickLatest(preferred) : pickEarliest(preferred);
+  else if (withMr.length > 0) best = pickNearest(withMr);
   if (best) {
     instants.moonrise = iso(best.mr);
-    diagnostics.push("moonrise: tithi not live at any moonrise; used nearest moonrise day");
+    diagnostics.push(
+      `moonrise: tithi live at no moonrise; observed on the ${worship ? "Pūrṇimā-moon-worship" : "fast-sighting"} day`,
+    );
     return { day: best.day, instants };
   }
   diagnostics.push("moonrise: no moonrise on any candidate day (polar?)");
