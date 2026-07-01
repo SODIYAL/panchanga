@@ -51,3 +51,15 @@ describe("Makar Sankranti after-sunset ingress shifts to the puṇya-kāla day",
     });
   }
 });
+
+describe("Sarva-Pitṛ (Mahālaya) Amāvāsyā is aparāhṇa-vyāpinī, not sunrise", () => {
+  // Pitṛ (śrāddha) rites are performed when Amāvāsyā prevails in the afternoon.
+  // In years where Amāvāsyā ends before the second day's aparāhṇa, sunrise and
+  // aparāhṇa diverge; the afternoon (aparāhṇa) day is correct.
+  it("2027 New Delhi → Sep 29 (aparāhṇa), not Sep 30 (sunrise)", () => {
+    expect(dateOf(2027, DELHI, "amavasya-ashwina")).toBe("2027-09-29");
+  });
+  it("2026 New Delhi → Oct 10 (aparāhṇa and sunrise coincide)", () => {
+    expect(dateOf(2026, DELHI, "amavasya-ashwina")).toBe("2026-10-10");
+  });
+});

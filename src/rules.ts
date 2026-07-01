@@ -889,7 +889,18 @@ export function purnimaSnanaRules(year: number): FestivalRule[] {
   }]);
 }
 
-/** Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month. */
+/**
+ * Amāvāsyā — the new-moon (amāvāsyā) day of every pūrṇimānta month.
+ *
+ * Āśvina Amāvāsyā is Sarva-Pitṛ / Mahālaya Amāvāsyā, the culmination of the
+ * pitṛ-pakṣa śrāddha. Pitṛ (ancestral) rites are **aparāhṇa-vyāpinī** — performed
+ * on the day Amāvāsyā prevails in the afternoon (Manusmṛti 3.278) — so this one
+ * keys on aparāhṇa, not sunrise. Whenever Amāvāsyā ends in the morning of the
+ * second day, the two rules diverge: Sarva-Pitṛ 2027 New Delhi is Sep 29
+ * (aparāhṇa-Amāvāsyā) though Amāvāsyā still prevails at the Sep 30 sunrise. The
+ * remaining Amāvāsyās are snāna/darśa-oriented (e.g. Māgha = Mauni, a prataḥ
+ * Gaṅgā-snāna) and keep the sunrise reckoning.
+ */
 export function amavasyaRules(year: number): FestivalRule[] {
   void year;
   return monthlyVrataRules((month, slug, adhika) => [{
@@ -899,7 +910,11 @@ export function amavasyaRules(year: number): FestivalRule[] {
     category: "lunar-tithi",
     extended: true,
     ...(adhika ? { meta: { note: ADHIKA_NOTE } } : {}),
-    observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
+    observance: {
+      kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya",
+      window: slug === "ashwina" ? "aparahna" : "sunrise",
+      precedence: "max-window-fraction",
+    },
   }]);
 }
 
@@ -1047,6 +1062,15 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
     id, displayName, month: { purnimanta: month }, category: "moonrise", extended: true,
     observance: { kind: "moonrise", paksha: "shukla", tithi: "purnima" },
   });
+  // Vat Sāvitrī (North) and Shani Jayanti fall on Jyeṣṭha Amāvāsyā. These are
+  // NOT pitṛ rites (unlike Sarva-Pitṛ, which is aparāhṇa), and their true nirṇaya
+  // — "the day Amāvāsyā, joined to the preceding Caturdaśī, prevails through the
+  // daytime" — is not captured cleanly by either a sunrise or an aparāhṇa window
+  // at all longitudes (aparāhṇa mis-selects at far-western longitudes, where the
+  // late-afternoon window clips only the START of an evening-beginning Amāvāsyā).
+  // Kept on the sunrise reckoning, which matches Drik Calgary; the residual New
+  // Delhi ±1 in years where Amāvāsyā begins mid-morning (e.g. 2025 → engine May
+  // 27 vs May 26) is a documented limitation pending a proper daytime-vyāpti rule.
   const A = (id: string, displayName: string, month: string): FestivalRule => ({
     id, displayName, month: { purnimanta: month }, category: "lunar-tithi", extended: true,
     observance: { kind: "tithi-pervades", paksha: "krishna", tithi: "amavasya", window: "sunrise", precedence: "max-window-fraction" },
