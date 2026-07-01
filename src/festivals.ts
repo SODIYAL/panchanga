@@ -933,7 +933,22 @@ function resolveMoonrise(
     );
     return { day: best.day, instants };
   }
-  diagnostics.push("moonrise: no moonrise on any candidate day (polar?)");
+  // No moonrise on any touched day (a high-latitude lunation where the moon skips
+  // the single civil day the short tithi occupies). Never drop: observe on the
+  // day holding the largest portion of the tithi (the vrata/fast day); the moon
+  // is sighted late that night. Only a genuinely empty candidate set yields null.
+  if (days.length > 0) {
+    const daysMs = days.map((d) => d.getTime());
+    const overlap = (i: number): number => {
+      const e = i + 1 < daysMs.length ? daysMs[i + 1] : daysMs[i] + DAY_MS;
+      return Math.max(0, Math.min(endMs, e) - Math.max(startMs, daysMs[i]));
+    };
+    let bi = 0;
+    for (let i = 1; i < days.length; i++) if (overlap(i) > overlap(bi)) bi = i;
+    diagnostics.push("moonrise: no moonrise on any candidate day; observed on the day holding the largest portion of the tithi");
+    return { day: days[bi], instants };
+  }
+  diagnostics.push("moonrise: no candidate day (polar?)");
   return { day: null, instants };
 }
 
