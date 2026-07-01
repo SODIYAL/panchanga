@@ -64,6 +64,7 @@ import {
   nishita,
   brahmaMuhurta,
   arunodaya,
+  daytime,
 } from "./time.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -429,6 +430,8 @@ function kalaWindow(kala: Kala, dayInstant: Date, loc: GeoLocation): TimeWindow 
       return nishita(dayInstant, loc);
     case "brahmaMuhurta":
       return brahmaMuhurta(dayInstant, loc);
+    case "daytime":
+      return daytime(dayInstant, loc);
     case "arunodaya":
       return arunodaya(dayInstant, loc);
     default:

@@ -556,6 +556,21 @@ export function brahmaMuhurta(date: Date, loc: GeoLocation): TimeWindow | null {
 }
 
 /**
+ * Daytime (dina) — the full [sunrise, sunset] arc.
+ *
+ * Used by day-long observances whose day-assignment is "the tithi that prevails
+ * through the daytime" rather than at a single kāla — e.g. Vat Sāvitrī / Shani
+ * Jayanti, chosen (with max-window-fraction) as the day whose daylight holds the
+ * larger portion of Jyeṣṭha Amāvāsyā. Returns null at polar latitudes.
+ */
+export function daytime(date: Date, loc: GeoLocation): TimeWindow | null {
+  const sr = getSunrise(date, loc);
+  const ss = getSunset(date, loc);
+  if (!sr || !ss) return null;
+  return { start: sr, end: ss };
+}
+
+/**
  * Aruṇodaya ("break of dawn") — the pre-sunrise window that aruṇodaya-vyāpinī
  * observances key on (e.g. the start of an Ekādaśī / vrata fast, and snāna
  * timing).

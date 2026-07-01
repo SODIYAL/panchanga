@@ -39,7 +39,7 @@ export type { GeoLocation } from "./time.js";
  */
 export type Kala =
   | "sunrise" | "purvahna" | "madhyahna" | "aparahna" | "pradosha"
-  | "nishita" | "pratahkala" | "brahmaMuhurta"
+  | "nishita" | "pratahkala" | "brahmaMuhurta" | "daytime"
   | "moonrise" | "sunset" | "arunodaya" | "sankrantiPunyaKala";
 
 /**
