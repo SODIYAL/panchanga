@@ -27,7 +27,11 @@ const EXPECTED: Record<string, string> = {
   "phulera-dooj": "2026-02-18",
   "ugadi-gudi-padwa": "2026-03-19",
   "chaitra-navratri-parana": "2026-03-27",
-  "koorm-jayanti": "2026-04-30",
+  // Vaiśākha Pūrṇimā (= Buddha Pūrṇimā). Kurma Jayanti 2026 = Fri May 1 (Drik /
+  // Pūrṇimā 30 Apr 21:12 → 1 May 22:52 IST): the full moon rises during Pūrṇimā
+  // on May 1 at New Delhi (the Apr 30 moonrise is still Caturdaśī). The earlier
+  // Apr 30 pin was pre-fix month-end-day-skip output (localMidnightUTC bug).
+  "koorm-jayanti": "2026-05-01",
   "narad-jayanti": "2026-05-02",
   "ganga-dussehra": "2026-05-25",
   "jagannath-rath-yatra": "2026-07-16",
