@@ -153,19 +153,6 @@ function tithiLiveAt(interval: { start: Date; end: Date }, t: Date): boolean {
   return interval.start.getTime() <= t.getTime() && interval.end.getTime() > t.getTime();
 }
 
-/**
- * Temporal gap (ms, ≥0) between the tithi interval and the kāla window: 0 if
- * they overlap, otherwise the size of the bare interval separating them. Used by
- * the `nearest-window` fallback to pick the candidate whose window sits closest
- * to the tithi when none actually pervades.
- */
-function tithiWindowGap(c: PervasionCandidate): number {
-  const t = c.tithiInterval;
-  const w = c.window;
-  if (overlapMs(t, w) > 0) return 0;
-  return Math.max(w.start.getTime() - t.end.getTime(), t.start.getTime() - w.end.getTime());
-}
-
 /** Is the tithi live at the window's start instant (udaya)? */
 function presentAtStart(c: PervasionCandidate): boolean {
   return tithiLiveAt(c.tithiInterval, c.window.start);
@@ -309,12 +296,33 @@ export function selectDayByPervasion(
     // current going into that night. Resolved here (we hold the candidates),
     // so the caller receives a chosen day rather than a previous/next-day shift.
     if (opts.fallback === "nearest-window" && pool.length > 0) {
-      const nearest = pool.reduce((best, c) => (tithiWindowGap(c) < tithiWindowGap(best) ? c : best));
+      // No window pervades: observe on the day the tithi is most CURRENT — the
+      // candidate civil day that holds the largest portion of the tithi. A tithi
+      // that straddles two sunrises/midnights without covering the ritual window
+      // (a niśīta Caturdaśī at a far-western longitude, a Pūrṇimā that misses
+      // both sunrises) belongs to the day it *spans*, not merely the day whose
+      // window sits closest in clock-time. Ranking by the smaller window-gap
+      // picked the wrong side when the tithi ended just before the next day's
+      // window (e.g. Kārtik Pūrṇimā at Calgary: tithi ends 14 min before the Nov
+      // 24 sunrise, yet the observance is Nov 23, the day Pūrṇimā is current all
+      // afternoon). Civil-day bounds come from the consecutive candidate
+      // midnights; the last day is bounded by +24h (a tithi is < 27h, so the
+      // relative ranking is unaffected). Ties fall to the earlier day (the
+      // day-sorted reduce keeps the first max).
+      const dayMs = ordered.map((c) => c.day.getTime());
+      const civilDayOverlap = (c: PervasionCandidate): number => {
+        const i = dayMs.indexOf(c.day.getTime());
+        const end = i >= 0 && i + 1 < dayMs.length ? dayMs[i + 1] : c.day.getTime() + DAY_MS;
+        return overlapMs(c.tithiInterval, { start: c.day, end: new Date(end) });
+      };
+      const chosen = pool.reduce((best, c) =>
+        (civilDayOverlap(c) > civilDayOverlap(best) ? c : best),
+      );
       diagnostics.push(
-        "fallback(nearest-window): tithi pervaded no candidate window; chose the day whose window is nearest the tithi",
+        "fallback(nearest-window): tithi pervaded no candidate window; chose the day that holds the largest portion of the tithi",
       );
       return {
-        chosen: nearest,
+        chosen,
         coverageFraction: 0,
         fallbackApplied: "nearest-window",
         bhadraOverlap: null,
@@ -753,7 +761,14 @@ function resolveTithiPervades(
     precedence: obs.precedence,
     nakshatra: obs.nakshatra?.mode,
     avoidKarana: obs.avoidKarana,
-    fallback: obs.fallback,
+    // Never silently drop: when a rule specifies no fallback and the tithi
+    // pervades the ritual window on NO candidate day (e.g. a niśīta Caturdaśī or
+    // a pradoṣa/sunrise tithi that straddles the window at a far-western/eastern
+    // longitude), resolve to the day that holds the largest portion of the tithi
+    // instead of returning no date. `nearest-window` only fires on total
+    // non-pervasion, so it cannot change a day the tithi actually pervades.
+    // A required-nakshatra wipeout is handled separately and still yields no date.
+    fallback: obs.fallback ?? "nearest-window",
   });
   for (const d of sel.diagnostics) diagnostics.push(d);
 

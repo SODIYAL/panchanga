@@ -148,19 +148,18 @@ describe("rules 2026 — Ekadashi count", () => {
       );
     }
 
-    // After the adhika-aware evaluator fix (Task 5b bugfix):
-    // - The 2 Adhika Jyeshtha Ekadashis (Padmini + Parama) now resolve correctly.
-    // - ekadashi-ashadha-krishna remains undated: tithi 26 (Nija Ashadha Krishna
-    //   Ekadashi) genuinely does not pervade sunrise in 2026 — it starts at ~08:17 IST
-    //   on July 10 (after sunrise at ~05:30 IST). This is an astronomical reality,
-    //   not a labeling bug. Phase 4 may address this via fallback or a different
-    //   precedence rule for this specific case.
-    // Expected dated count = 25 (26 rules − 1 astronomically-undatable).
+    // After the adhika-aware evaluator fix AND the nearest-window default fallback:
+    // - The 2 Adhika Jyeshtha Ekadashis (Padmini + Parama) resolve correctly.
+    // - ekadashi-ashadha-krishna (Yogini) is a kṣaya Ekādaśī in 2026: tithi 26
+    //   starts ~08:17 IST July 10 (after sunrise) and ends ~05:23 IST July 11
+    //   (before sunrise), so it pervades NO sunrise. It no longer drops — the
+    //   nearest-window fallback observes it on the day holding the largest portion
+    //   of the tithi = July 10, matching Drik / published Yogini Ekadashi 2026.
+    // Expected dated count = 26 (all rules resolve; no silent drop).
     expect(
       dated.length,
-      `Expected 25 dated Ekadashi results (26 rules − 1 astronomical miss); ` +
-        `got ${dated.length} dated, ${undated.length} undated`,
-    ).toBe(25);
+      `Expected all 26 Ekadashi results dated; got ${dated.length} dated, ${undated.length} undated`,
+    ).toBe(26);
   });
 });
 
@@ -234,7 +233,7 @@ describe("rules 2026 — adhika Jyeshtha Ekadashi (Padmini + Parama)", () => {
   });
 
   /**
-   * All 25 dated Ekadashi results in 2026 must have DISTINCT civil dates.
+   * All 26 dated Ekadashi results in 2026 must have DISTINCT civil dates.
    * A duplicate date means two rules resolved to the same day — the hallmark
    * of the old nija-preference bug for adhika rules.
    */
@@ -259,26 +258,23 @@ describe("rules 2026 — adhika Jyeshtha Ekadashi (Padmini + Parama)", () => {
   });
 
   /**
-   * Ashadha Krishna Ekadashi (Kamika) in 2026.
+   * Ashadha Krishna Ekadashi (Yogini) in 2026 — a kṣaya (skips-sunrise) Ekādaśī.
    *
-   * This remains undated after the fix: the Nija Ashadha Krishna Ekadashi
-   * (absolute tithi 26) starts at ~08:17 IST on July 10, 2026 — AFTER
-   * sunrise (~05:30 IST) — so it genuinely does not pervade any sunrise in
-   * the udaya-tithi sense.  This is an astronomical reality, not a
-   * labeling bug.  The evaluator correctly reports it undated with a
-   * diagnostic; Phase 4 may address it via a fallback rule.
-   *
-   * We assert the never-silent-drop contract: the result must exist with a
-   * diagnostic (no silent omission).
+   * The Nija Ashadha Krishna Ekadashi (absolute tithi 26) starts ~08:17 IST on
+   * July 10 (after sunrise ~05:30 IST) and ends ~05:23 IST on July 11 (before
+   * sunrise ~05:31 IST), so it pervades NEITHER sunrise. It must NOT be dropped:
+   * the nearest-window fallback observes it on the day holding the largest
+   * portion of the tithi — July 10 — matching Drik / published Yogini Ekadashi
+   * 2026 (Fri July 10). A dropped Ekādaśī was never a correct outcome.
    */
-  it("Ashadha Krishna Ekadashi is undated in 2026 (astronomical — tithi skips sunrise)", () => {
+  it("Ashadha Krishna Ekadashi (Yogini, kṣaya) resolves to 2026-07-10 via nearest-window", () => {
     const r = ekResult("ekadashi-ashadha-krishna");
     expect(r, "ekadashi-ashadha-krishna result must exist (never-silent-drop)").toBeDefined();
-    expect(r!.date).toBe(""); // genuinely undated
+    expect(r!.date).toBe("2026-07-10");
     expect(
-      r!.diagnostics.length,
-      "undated result must carry at least one diagnostic",
-    ).toBeGreaterThan(0);
+      r!.diagnostics.some((d) => d.includes("nearest-window")),
+      "kṣaya Ekādaśī must record the nearest-window fallback in its diagnostics",
+    ).toBe(true);
   });
 });
 

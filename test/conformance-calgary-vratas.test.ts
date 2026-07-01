@@ -135,10 +135,11 @@ const KNOWN_DIFFS: Record<string, string> = {
   // Genuine ±1 day-attribution edges vs Drik Calgary.
   "sankranti-mithuna": "2026-06-15", // Drik 2026-06-14
   "amavasya-ashwina": "2026-10-10", // Drik 2026-10-09 (Sarva Pitṛ)
-  // Kārtika Pūrṇimā snāna: Pūrṇimā is present at the Nov 24 sunrise (udaya), but
-  // Drik observes the snāna on Nov 23 — a ±1 edge where the tithi ends in a thin
-  // sliver after sunrise. The other 11 months match Drik exactly.
-  "purnima-snana-kartika": "2026-11-24", // Drik 2026-11-23
+  // (Kārtika Pūrṇimā snāna now matches Drik Calgary exactly, 2026-11-23: Pūrṇimā
+  // touches neither Calgary sunrise, so the nearest-window fallback fires and now
+  // correctly picks the day that HOLDS the Pūrṇimā — Nov 23, the day the full
+  // moon is up all afternoon — rather than the Nov 24 sunrise 14 min past its
+  // end. Previously pinned here as a ±1 diff.)
 };
 
 // Previously two Masik Śivarātri had no Calgary date (the Kṛṣṇa Caturdaśī ends
