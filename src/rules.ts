@@ -233,7 +233,12 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: "purnima",
       window: "sunrise",
-      precedence: "max-window-fraction",
+      // Pūrṇimā-at-sunrise (udaya-vyāpinī), the same archetype as Hanuman Jayanti
+      // — observed on the day Pūrṇimā prevails at sunrise, not the larger
+      // window-fraction. (Identical to max-window-fraction across 2024-2030 at
+      // New Delhi and Calgary; unified to udaya for consistency with the other
+      // Pūrṇimā-at-sunrise rules.)
+      precedence: "udaya",
     },
   },
 
