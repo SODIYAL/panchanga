@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { computeFestivals } from "../src/festivals.js";
-import { allRules } from "../src/rules.js";
+import { allRules, ekadashiRules, adhikaMonthLabel } from "../src/rules.js";
 import type { GeoLocation } from "../src/types.js";
 
 const DELHI: GeoLocation = { latitude: 28.6139, longitude: 77.209, timeZone: "Asia/Kolkata" };
@@ -61,5 +61,32 @@ describe("Sarva-Pitṛ (Mahālaya) Amāvāsyā is aparāhṇa-vyāpinī, not sun
   });
   it("2026 New Delhi → Oct 10 (aparāhṇa and sunrise coincide)", () => {
     expect(dateOf(2026, DELHI, "amavasya-ashwina")).toBe("2026-10-10");
+  });
+});
+
+describe("adhika-māsa observances land in the year's actual leap month", () => {
+  it("detects the real leap month per year", () => {
+    expect(adhikaMonthLabel(2026)).toBe("Adhika Jyeshtha");
+    expect(adhikaMonthLabel(2029)).toBe("Adhika Chaitra");
+    expect(adhikaMonthLabel(2031)).toBe("Adhika Bhadrapada");
+    expect(adhikaMonthLabel(2027)).toBeNull(); // no leap month
+  });
+
+  it("2029 (Adhika Chaitra): Padminī + Paramā Ekādaśī resolve — 26 Ekādaśīs, not 24", () => {
+    // Previously the leap Ekādaśīs were hardcoded to "Adhika Jyeshtha" and so
+    // vanished in every year whose leap month was not Jyeṣṭha.
+    const ids = ekadashiRules(2029).map((r) => r.id);
+    expect(ids).toContain("ekadashi-adhika-chaitra-shukla"); // Padminī
+    expect(ids).toContain("ekadashi-adhika-chaitra-krishna"); // Paramā
+    const dated = new Set(
+      computeFestivals(2029, DELHI, { rules: allRules(2029) }).results
+        .filter((r) => r.id.startsWith("ekadashi-") && r.date)
+        .map((r) => r.date),
+    );
+    expect(dated.size).toBe(26);
+  });
+
+  it("non-leap years emit no adhika entries at all", () => {
+    expect(ekadashiRules(2027).filter((r) => /adhika/i.test(r.id))).toHaveLength(0);
   });
 });
