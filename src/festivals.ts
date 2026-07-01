@@ -707,10 +707,17 @@ function resolveTithiPervades(
       );
       continue;
     }
-    // Nakshatra fact at the window's anchor instant (its start).
+    // Nakshatra fact at the anchor instant of the nakshatra's OWN window when the
+    // rule names one (e.g. Janmāṣṭamī checks Rohiṇī at niśīta), falling back to the
+    // tithi window otherwise. Previously the nakshatra was always read at the
+    // tithi window, so `nakshatra.window` was ignored — harmless only because the
+    // sole nakshatra rule happens to use the same window for both.
     let nakshatraOk: boolean | undefined;
     if (obs.nakshatra) {
-      const idx = nakshatraAt(win.start);
+      const nakWin = obs.nakshatra.window
+        ? kalaWindow(obs.nakshatra.window, dayMidnight, loc)
+        : win;
+      const idx = nakshatraAt((nakWin ?? win).start);
       nakshatraOk = NAKSHATRA_NAMES[idx] === obs.nakshatra.name;
     }
     // Bhadra overlap with the window, if requested. We record BOTH the first
