@@ -2,14 +2,17 @@
 
 Drik Panchanga (Smārta, pūrṇimānta) engine for the [HSNA](https://hsna.ca) website.
 
-A dependency-light TypeScript library that computes the Hindu lunisolar calendar —
-the **five aṅgas** (vāra, tithi, nakṣatra, yoga, karaṇa), the lunar month, and
-sidereal / ayanāṁśa values — and resolves **Hindu festival dates**, all from
+A dependency-light TypeScript library for the Hindu calendar **and** jyotiṣa, all from
 astronomical first principles via
-[astronomy-engine](https://github.com/cosinekitty/astronomy). No lookup tables, no
-remote API.
+[astronomy-engine](https://github.com/cosinekitty/astronomy) — no lookup tables, no
+remote API. It computes the **five aṅgas** (vāra, tithi, nakṣatra, yoga, karaṇa), the
+lunar month and sidereal/ayanāṁśa values; resolves **~195 festival dates** through a
+declarative nirṇaya grammar; and casts **janma-kuṇḍalī** (birth charts) with the full
+BPHS ṣoḍaśavarga, Vimśottarī daśā, and **aṣṭakūṭa guṇa milan** (marriage matching).
+Every output carries its provenance; conformance to **Drik Panchang** (the authority of
+record) and to the **Swiss Ephemeris** is enforced in the test suite.
 
-> **Status:** pre-1.0 (`0.2.0`), under active development. The grammar and public API
+> **Status:** pre-1.0 (`0.3.0`), under active development. The grammar and public API
 > may still change.
 
 ## Features
@@ -154,6 +157,24 @@ ayanamsha(t);        // Lahiri ayanāṁśa in degrees (≈ 24.2° in 2026)
 siderealSunRashi(t); // sidereal rāśi index of the Sun: 0 = Mesha … 11 = Mīna
 ```
 
+### Cast a janma-kuṇḍalī / match horoscopes
+
+```ts
+import { kundali, gunaMilan, janmaFacts, localCivilTimeToUTC } from "panchanga";
+
+const birth = localCivilTimeToUTC(1996, 8, 15, 9, 30, "Asia/Kolkata"); // local wall clock → UTC
+const chart = kundali(birth, newDelhi, { vargas: "all", dashaLevels: 3 });
+
+console.log(chart.lagna.rashiName, chart.lagna.window); // lagna + its ~2 h validity window
+console.log(chart.janma.janmaNakshatraName);            // janma nakṣatra
+console.log(chart.grahas[1].vargas?.D9);                // Moon's navāṁśa (any of 16 vargas)
+console.log(chart.dasha[0].lord, chart.dasha[0].years); // Vimśottarī balance mahādaśā
+
+const groom = janmaFacts(birth, newDelhi);
+const bride = janmaFacts(localCivilTimeToUTC(1998, 12, 3, 19, 50, "Asia/Kolkata"), newDelhi);
+const milan = gunaMilan(groom, bride); // 36-guṇa: per-kūṭa breakdown + doṣa/parihāra
+```
+
 ## HTTP API (serverless)
 
 For consumers that aren't JavaScript — other backends, mobile apps, no-code tools,
@@ -262,7 +283,7 @@ declares how its civil date is resolved:
 
 | `kind` | Resolves by | Examples |
 |---|---|---|
-| `tithi-pervades` | A tithi pervading a kāla window on the chosen day, picked by a `precedence` policy (`max-window-fraction`, `udaya`, `first`, `second`). Optional `nakshatra` filter, `avoidKarana: "vishti"` (Bhadra), `adhika: "prefer-adhika"` (leap-month policy), and a `fallback` (`previous-day` / `next-day` / `nearest-window`) | most lunar festivals |
+| `tithi-pervades` | A tithi pervading a kāla window on the chosen day, picked by a `precedence` policy (`max-window-fraction`, `udaya`, `first`, `second`). Optional `nakshatra` filter, `avoidKarana: "vishti"` with a `bhadraDeadline` day-retention rule (`midnight` for night rites like Holikā, `pradosha-end` for day rites like Rakhi), a `vedha` clause (Vaiṣṇava aruṇodaya daśamī-vedha), `adhika: "prefer-adhika"` (leap-month policy), and a `fallback` (`previous-day` / `next-day` / `nearest-window`) | most lunar festivals |
 | `solar-ingress` | The Sun's sidereal ingress into a rāśi | Makar Saṅkrānti, Vishwakarma |
 | `moonrise` | Tithi live at moonrise | Karva Chauth, Sankaṣṭī |
 | `solar-arghya` | Tithi at sunset and the next sunrise | Chhath |
@@ -275,11 +296,14 @@ generated for that year (see the generators listed under **API overview → 5**)
 
 ## Scope of validation
 
-This package computes panchanga values via `astronomy-engine` and is validated for
-conformance to Drik Panchang (Smārta, pūrṇimānta) for the locations and years covered by
-`test/fixtures`. It has **not** been independently verified by a traditional pandit or
-Jyotisha authority — verify computed values against your local authority before ritual
-use.
+Calendar outputs are validated for conformance to Drik Panchang (Smārta, pūrṇimānta)
+for the tested locations and years, with multi-year regression pins wherever a
+convention was fit to authority data. Jyotiṣa outputs are dually validated: positions
+and lagna differentially against the Swiss Ephemeris on every CI run, and the aṣṭakūṭa
+scorer cell-by-cell against six transcribed Drik Kundali-Match fixtures. None of it has
+been independently verified by a traditional pandit or Jyotiṣa authority — verify
+computed values against your local authority before ritual use, and treat guṇa-milan
+output as one classical input among many, never a verdict.
 
 ## Development
 
@@ -292,14 +316,17 @@ npm run audit:ephemeris  # differential audit vs the Swiss Ephemeris → EPHEMER
 
 The **ephemeris audit** measures every aṅga boundary and replays every festival-date
 decision (2024–2032 × 4 cities) against the Swiss Ephemeris (see
-[`EPHEMERIS_AUDIT.md`](EPHEMERIS_AUDIT.md)): tithi boundaries agree within 45 s,
-saṅkrānti instants within 40 s (the Lahiri realization is calibrated to Swiss
-`SE_SIDM_LAHIRI`, pinned by Drik's 2031 London Makar Saṅkrānti — `KNOWN_ISSUES.md` R6),
-and only 2 of ~6,700 festival decisions are ephemeris-sensitive — both razor-edge
-window-fraction ties.
+[`EPHEMERIS_AUDIT.md`](EPHEMERIS_AUDIT.md)). After two empirical calibrations — the
+Lahiri realization to Swiss `SE_SIDM_LAHIRI` (anchor + IAU 2006; pinned by Drik's 2031
+London Makar Saṅkrānti, `KNOWN_ISSUES.md` R6) and the elongation to the apparent-place
+pairing (+16.48″, the solar aberration) — tithi boundaries agree within **10 s**,
+saṅkrānti instants within 40 s, and **zero** of ~6,700 festival decisions are
+ephemeris-sensitive.
 
-Tests live in `test/` (~370 cases): per-module unit suites plus the Drik-Panchang
-conformance checks — `conformance.test.ts` (2026 New Delhi) and **five Calgary suites**
+Tests live in `test/` (525 cases): per-module unit suites, the jyotiṣa suites (Swiss
+differential validation of grahas/nodes/lagna, BPHS varga & daśā rules, aṣṭakūṭa tables,
+six transcribed Drik guṇa-milan fixtures), plus the Drik-Panchang festival conformance
+checks — `conformance.test.ts` (2026 New Delhi) and **five Calgary suites**
 (the HSNA temple's city) whose EXPECTED dates are transcribed from Drik Panchang's Calgary
 calendar (geoname-id 5913490): `conformance-calgary.test.ts` (24 core festivals),
 `-vratas` (Ekādaśī, Saṅkaṣṭī, Pūrṇimā vrat & snāna, Amāvāsyā, minor Saṅkrāntis), `-oneoff`
@@ -330,9 +357,9 @@ ones to be aware of:
 - **Ganga Dussehra, Balram Jayanti — definitional, follow HSNA.** Ganga Dussehra uses the
   adhika Jyeṣṭha when present (matching Drik); Balram Jayanti follows HSNA's Kṛṣṇa-Ṣaṣṭhī
   rather than Drik's Śukla-Ṣaṣṭhī.
-- **Maha Navami (Durga) — Sandhi rule, +1 known diff.** Drik can place Navamī on the
-  Aṣṭamī-udaya day via the Sandhi-Pūjā convention, which the generic tithi grammar does
-  not express.
+- **Durga Aṣṭamī / Mahā Navamī — resolved to udaya** (`KNOWN_ISSUES.md` R8): both use
+  udaya precedence, matching published India dates in the 2028 divergence year. The
+  Sandhi-Pūjā junction remains a muhūrta-level display convention, not a date selector.
 - **Pinned ±1 edges:** Kārtika Pūrṇimā snāna, Sarva-Pitṛ Amāvāsyā, Mithuna Saṅkrānti,
   Phulera Dooj, Hariyali Teej / Nag Panchami / Kansh Vadh (New Delhi). Each is a two-day
   tithi straddling sunrise where the day-attribution convention is genuinely borderline;
@@ -344,8 +371,12 @@ ones to be aware of:
 - **Runtime dependency:** [`astronomy-engine`](https://github.com/cosinekitty/astronomy)
   — the only one; provides ephemeris (Sun/Moon position, rise/set, moon-phase search,
   precession).
-- **Tooling:** `tsc` for the build, [Vitest](https://vitest.dev) 4 for tests. No bundler,
-  linter, or CI.
+- **Tooling:** `tsc` for the library build, [esbuild](https://esbuild.github.io) to
+  bundle the serverless API engine (`api-engine/`), [Vitest](https://vitest.dev) 4 for
+  tests, GitHub Actions CI (build + full suite on every push), and
+  [`sweph`](https://www.npmjs.com/package/sweph) as a **devDependency only** — the Swiss
+  Ephemeris differential validation runs in CI; the runtime dependency remains
+  astronomy-engine alone.
 
 ## License
 
