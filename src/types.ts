@@ -93,6 +93,19 @@ export type Observance =
       precedence: "max-window-fraction" | "udaya" | "first" | "second";
       nakshatra?: { name: string; window?: Kala; mode: "required" | "preferred" };
       avoidKarana?: "vishti";
+      /**
+       * Day-retention deadline when the window is wholly Bhadra-covered
+       * (with `avoidKarana:"vishti"`): the observance stays on its own day if
+       * Bhadra clears before this deadline (performed after Bhadra / in
+       * Pucchā), else shifts to the Bhadra-free udaya day. `"midnight"`
+       * (default) suits night rites (Holikā — the fire can burn late);
+       * `"pradosha-end"` suits day rites (Rakṣā Bandhan — tying past pradoṣa
+       * is not done, so a Bhadra outlasting pradoṣa pushes the day).
+       * Drik-conformant: Holika 2024/2025 retain vs 2023/2026 shift;
+       * Rakhi 2023 (Bhadra 21:02 < pradoṣa-end 21:18) retains vs 2026
+       * (21:33 > 21:22) shifts.
+       */
+      bhadraDeadline?: "midnight" | "pradosha-end";
       fallback?: "previous-day" | "next-day" | "nearest-window";
       /**
        * Vedha (contamination) clause — the Vaiṣṇava Ekādaśī rule. After the

@@ -258,6 +258,11 @@ export const CORE_RULES: FestivalRule[] = [
       window: "aparahna",
       precedence: "max-window-fraction",
       avoidKarana: "vishti",
+      // Rakhi is a DAY rite: tying past pradoṣa is not done, so Bhadra must
+      // clear by pradoṣa end for the day to be retained (Drik: 2023 Aug 30
+      // retained, Bhadra 21:02 < pradoṣa-end 21:18; 2026 shifted to Aug 28,
+      // Bhadra 21:33 > 21:22).
+      bhadraDeadline: "pradosha-end",
     },
   },
 
@@ -341,7 +346,12 @@ export const CORE_RULES: FestivalRule[] = [
       paksha: "shukla",
       tithi: 8,
       window: "sunrise",
-      precedence: "max-window-fraction",
+      // UDAYA, matching maha-navami (was max-window-fraction — KNOWN_ISSUES
+      // O1). The two policies agree 2024–2027 and diverge in 2028, where Drik
+      // lists BOTH Durgā Aṣṭamī and Mahā Navamī on Sep 26 (a Navamī
+      // tithi-kṣaya/Sandhi year): the udaya reading. Unifying the precedence
+      // makes the adjacent Aṣṭamī/Navamī pair consistent by construction.
+      precedence: "udaya",
     },
   },
 

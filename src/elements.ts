@@ -167,11 +167,38 @@ function bisectLongitudeCrossing(
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Geocentric Moon−Sun ecliptic-longitude elongation in [0,360).
- * 0 = new moon (conjunction), 180 = full moon.
+ * DṚK CALIBRATION (empirical, Swiss-Ephemeris/Drik-conformant): astronomy-
+ * engine's `PairLongitude` elongation sits a near-constant **−16.48″ ± 2″**
+ * from the Swiss Ephemeris' apparent elongation (2020–2040 differential; the
+ * offset is dominated by the Sun's annual aberration ≈ 20.5″, which the
+ * apparent-place pairing includes and the geometric pairing does not). That
+ * is ~33 s of tithi time — enough to flip razor-thin pervasion ties: Bhīṣma
+ * Aṣṭamī 2028 publishes as Feb 3 (Drik-derived sources); uncalibrated the
+ * engine chose Feb 4 on a 40-second window-fraction margin. All elongation
+ * readings and boundary searches apply this constant so tithi/karaṇa/
+ * new-moon instants match the authority of record (~±10 s residual).
+ */
+const ELONGATION_BIAS_DEG = 16.477 / 3600;
+
+/**
+ * Geocentric Moon−Sun ecliptic-longitude elongation in [0,360), dṛk-calibrated
+ * (see ELONGATION_BIAS_DEG). 0 = new moon (conjunction), 180 = full moon.
  */
 export function elongation(date: FlexibleDateTime): number {
-  return PairLongitude(Body.Moon, Body.Sun, date);
+  return normalize360(PairLongitude(Body.Moon, Body.Sun, date) + ELONGATION_BIAS_DEG);
+}
+
+/**
+ * SearchMoonPhase with the dṛk elongation calibration: finds the instant the
+ * CALIBRATED elongation crosses `targetDeg` by searching the raw phase at
+ * `targetDeg − bias`. All boundary searches in this module go through here.
+ */
+function searchElongation(
+  targetDeg: number,
+  start: FlexibleDateTime,
+  limitDays: number,
+): ReturnType<typeof SearchMoonPhase> {
+  return SearchMoonPhase(normalize360(targetDeg - ELONGATION_BIAS_DEG), start, limitDays);
 }
 
 /**
@@ -209,9 +236,9 @@ export function tithiBoundaries(around: FlexibleDateTime): TithiBoundaries {
 
   // Start: most recent time phase reached startTarget at or before `around`.
   // Search backward up to ~2 tithis (a tithi is ~0.9–1.1 days; 3 d is safe).
-  const start = SearchMoonPhase(startTarget, t, -3);
+  const start = searchElongation(startTarget, t, -3);
   // End: next time phase reaches endTarget after `around`.
-  const end = SearchMoonPhase(endTarget, t, +3);
+  const end = searchElongation(endTarget, t, +3);
   if (!start || !end) {
     throw new Error(
       `tithiBoundaries: SearchMoonPhase failed for tithi ${n} near ${new Date(
@@ -377,8 +404,8 @@ export function karanaBoundaries(around: FlexibleDateTime): KaranaBoundaries {
   const h = karanaIndexAt(around);
   const startTarget = (h * DEG_PER_KARANA) % 360;
   const endTarget = ((h + 1) * DEG_PER_KARANA) % 360;
-  const start = SearchMoonPhase(startTarget, t, -3);
-  const end = SearchMoonPhase(endTarget, t, +3);
+  const start = searchElongation(startTarget, t, -3);
+  const end = searchElongation(endTarget, t, +3);
   if (!start || !end) {
     throw new Error(
       `karanaBoundaries: SearchMoonPhase failed for karaṇa ${h} near ${new Date(
@@ -435,10 +462,10 @@ export function bhadraIntervals(around: FlexibleDateTime): KaranaInterval[] {
     // and step forward by ~1 synodic month until past hiMs.
     let cursor = loMs;
     while (cursor <= hiMs) {
-      const s = SearchMoonPhase(startDeg % 360, new Date(cursor), SYNODIC_MONTH_DAYS + 1);
+      const s = searchElongation(startDeg % 360, new Date(cursor), SYNODIC_MONTH_DAYS + 1);
       if (!s) break;
       if (s.date.getTime() > hiMs) break;
-      const e = SearchMoonPhase(endDeg % 360, s.date, 2);
+      const e = searchElongation(endDeg % 360, s.date, 2);
       if (!e) break;
       // Keep intervals overlapping the window.
       if (e.date.getTime() >= loMs && s.date.getTime() <= hiMs) {
@@ -559,7 +586,7 @@ export function newMoons(year: number): Date[] {
   // Start a little before Jan 1 so we catch a new moon early in January.
   let cursor = new Date(Date.UTC(year - 1, 11, 25));
   for (let i = 0; i < 20; i++) {
-    const nm = SearchMoonPhase(0, cursor, 40);
+    const nm = searchElongation(0, cursor, 40);
     if (!nm) break;
     const ms = nm.date.getTime();
     if (ms >= yearEnd) break;
@@ -638,7 +665,7 @@ export interface LunarMonth {
 
 /** Find the new moon at or immediately before `ms` (UTC ms). */
 function newMoonAtOrBefore(ms: number): Date {
-  const nm = SearchMoonPhase(0, new Date(ms), -(SYNODIC_MONTH_DAYS + 2));
+  const nm = searchElongation(0, new Date(ms), -(SYNODIC_MONTH_DAYS + 2));
   if (!nm) throw new Error("newMoonAtOrBefore: SearchMoonPhase failed");
   return nm.date;
 }
@@ -646,7 +673,7 @@ function newMoonAtOrBefore(ms: number): Date {
 /** Find the first new moon strictly after `ms` (UTC ms). */
 function newMoonAfter(ms: number): Date {
   // Step a hair forward to avoid re-finding the same instant.
-  const nm = SearchMoonPhase(0, new Date(ms + 1000), SYNODIC_MONTH_DAYS + 2);
+  const nm = searchElongation(0, new Date(ms + 1000), SYNODIC_MONTH_DAYS + 2);
   if (!nm) throw new Error("newMoonAfter: SearchMoonPhase failed");
   return nm.date;
 }
