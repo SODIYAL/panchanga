@@ -88,10 +88,13 @@ function normalizeKey(s: string): string {
  * reachable by bare slug for `?place=` compatibility, but the generated list
  * can independently carry the same physical city (mumbai-mh, new-delhi-dl) —
  * so a search for either would otherwise show the city twice. Collapse a pair
- * when they share a normalized name AND sit within half a degree of lat/lng
- * (same physical place), keeping the record with `population` defined (the
- * richer generated row). Cities that merely share a name — London, UK vs.
- * London, ON, ~9° apart — are left alone; `lookupPlace`/`?place=` is untouched.
+ * only when it can actually BE such a duplicate — one record without
+ * `population` (a hand-kept extra) and one with (its generated counterpart) —
+ * AND they share a normalized name and sit within half a degree of lat/lng.
+ * Two populated records are always two genuinely distinct cities, even inside
+ * the box (Kansas City MO/KS, Niagara Falls NY/ON, Bristol VA/TN straddle a
+ * border); mere homonyms — London, UK vs. London, ON, ~9° apart — are also
+ * left alone. `lookupPlace`/`?place=` is untouched.
  */
 function dedupeSameCity(places: readonly Place[]): Place[] {
   const byName = new Map<string, Place[]>();
@@ -112,9 +115,11 @@ function dedupeSameCity(places: readonly Place[]): Place[] {
         const a = group[i];
         const samePlace = Math.abs(a.latitude - b.latitude) <= 0.5 && Math.abs(a.longitude - b.longitude) <= 0.5;
         if (!samePlace) continue;
-        // Prefer whichever already has `population` (the generated row); if
-        // both/neither do, arbitrarily keep the first (stable, order-preserving).
-        drop.add(a.population === undefined && b.population !== undefined ? a : b);
+        // Only an extras-vs-generated pair can be one city listed twice:
+        // extras carry no population, generated rows always do. Both
+        // populated ⇒ genuinely distinct twin cities — keep both.
+        if ((a.population === undefined) === (b.population === undefined)) continue;
+        drop.add(a.population === undefined ? a : b);
       }
     }
   }
@@ -627,7 +632,9 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         const q = (first(query, "q") ?? "").trim();
         const key = normalizeKey(q);
         // Hyphen-collapsed form so a squashed query ("dehradun", "jerseycity")
-        // still matches a multi-word name/slug ("dehra-dun-ut", "jersey-city-nj").
+        // still matches a multi-word NAME ("Dehra Dūn", "Jersey City"). Only
+        // the name is compacted — compacting the slug would glue the name to
+        // the state suffix ("dehradunut") and make ?q=nut a false hit.
         const compactKey = key.replace(/-/g, "");
         const country = (first(query, "country") ?? "").toUpperCase();
         const rawLimit = Number(first(query, "limit"));
@@ -635,11 +642,11 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         const filtered = ALL_PLACES.filter((p) => {
           if (country && p.country !== country) return false;
           if (!key) return true;
+          const nameKey = normalizeKey(p.name);
           return (
             p.slug.includes(key) ||
-            normalizeKey(p.name).includes(key) ||
-            p.slug.replace(/-/g, "").includes(compactKey) ||
-            normalizeKey(p.name).replace(/-/g, "").includes(compactKey)
+            nameKey.includes(key) ||
+            nameKey.replace(/-/g, "").includes(compactKey)
           );
         });
         const matches = dedupeSameCity(filtered);

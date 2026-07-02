@@ -119,6 +119,21 @@ describe("api /places (search)", () => {
     expect(body.places.some((p: any) => p.slug === "dehra-dun-ut")).toBe(true);
   });
 
+  it("does NOT de-dupe twin cities straddling a border: ?q=kansas city keeps MO and KS", () => {
+    // Both rows are generated (both populated) and sit within the 0.5° box —
+    // but they are genuinely distinct cities, not one city listed twice.
+    const body = call("/api/places", { q: "kansas city" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "kansas-city-mo")).toBe(true);
+    expect(body.places.some((p: any) => p.slug === "kansas-city-ks")).toBe(true);
+  });
+
+  it("compact matching stops at the name: ?q=nut must not leak across the name/state slug boundary", () => {
+    // Compacting the whole slug would glue name and state ("dehra-dun-ut" →
+    // "dehradunut"), making ?q=nut a false hit. Only the NAME is compacted.
+    const body = call("/api/places", { q: "nut", limit: "100" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "dehra-dun-ut")).toBe(false);
+  });
+
   it("country filter generalizes beyond US/CA: ?country=IN restricts results to India", () => {
     const body = call("/api/places", { country: "IN", q: "a", limit: "50" }).body as any;
     expect(body.places.length).toBeGreaterThan(0);
