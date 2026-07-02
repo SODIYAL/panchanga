@@ -42,6 +42,25 @@ const RUNS: DrikRun[] = [
     kootas: { Varna: 1, Vashya: 0, Tara: 3, Yoni: 3, "Graha Maitri": 5, Gana: 0, Bhakoota: 0, Nadi: 8 },
     total: 20,
   },
+  {
+    // Drik: Vara 2000-01-17 18:00 New Delhi (Rohiṇī/Vṛṣabha, 41.66°);
+    // Kanya 2000-01-27 13:55 New Delhi (Citrā/Tulā, 181.64°). Total 20/36,
+    // Bhakuta dosha verdict. Cell-for-cell agreement with the engine's
+    // tables — notably pins Gaṇa Manuṣya-groom × Rākṣasa-bride = 0 (the
+    // "2 points" variant published elsewhere is NOT Drik's), Vaśya
+    // Chatuṣpada×Mānava = 1, and Yoni Sarpa×Vyāghra = 2.
+    // (Drik labels the tārās "Kshema/Pratyaka" where our count arithmetic
+    // names them differently, but the awarded POINTS agree in every fixture
+    // so far — scores, not labels, are what we pin.)
+    name: "Run 2: Rohini p1 × Chitra p3 (Manushya×Rakshasa gana, half-sign vashya rows)",
+    query: {
+      groomDob: "2000-01-17", groomTob: "18:00", groomPlace: "new-delhi",
+      brideDob: "2000-01-27", brideTob: "13:55", bridePlace: "new-delhi",
+    },
+    janma: { groom: ["Rohini", "Vrishabha"], bride: ["Chitra", "Tula"] },
+    kootas: { Varna: 1, Vashya: 1, Tara: 3, Yoni: 2, "Graha Maitri": 5, Gana: 0, Bhakoota: 0, Nadi: 8 },
+    total: 20,
+  },
 ];
 
 describe("Drik Panchang guna-milan conformance (per-kūṭa, transcribed fixtures)", () => {
