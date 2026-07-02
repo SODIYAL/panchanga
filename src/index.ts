@@ -1,4 +1,4 @@
-export const PANCHANGA_VERSION = "0.2.0" as const;
+export const PANCHANGA_VERSION = "0.3.0" as const;
 
 export {
   ayanamsha,
