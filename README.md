@@ -209,7 +209,8 @@ local-time tithi interval, and a verify-with-your-authority note. `sampradaya=va
 the Vaiṣṇava nirṇaya (aruṇodaya daśamī-vedha / Gauṇa shift).
 
 **Location** is a `place` slug or explicit `lat`, `lng` & `tz`. Every **US & Canada city
-of ≥10,000 people (~4,800 places)** is a slug — `calgary-ab`, `austin-tx`, `jersey-city-nj`
+of ≥10,000 people, plus every India city/town of ≥15,000 people (~7,200 places)**, is a
+slug — `calgary-ab`, `austin-tx`, `jersey-city-nj`, `jaipur-rj`, `varanasi-up`
 — generated offline from GeoNames data with [`scripts/gen-places.mjs`](scripts/gen-places.mjs)
 (timezone resolved per-coordinate, so Arizona/Indiana edge cases are correct) into
 [`api/places.generated.ts`](api/places.generated.ts). A **bare city name** resolves to its

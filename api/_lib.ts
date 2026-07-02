@@ -40,8 +40,8 @@ import {
 import { PLACES } from "./places.generated.js";
 
 /** A resolvable named location. The bulk come from places.generated.ts (every
- *  US + Canada city ≥10k people); a handful of non-US/CA marquee cities are
- *  added below. */
+ *  US + Canada city ≥10k people, plus every India city/town ≥15k); a handful
+ *  of extra marquee cities are added below. */
 type Place = GeoLocation & {
   slug: string;
   name: string;
@@ -81,6 +81,49 @@ function normalizeKey(s: string): string {
     .replace(/['’.]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * `/api/places` search only: EXTRA_PLACES keeps hand rows (mumbai, new-delhi)
+ * reachable by bare slug for `?place=` compatibility, but the generated list
+ * can independently carry the same physical city (mumbai-mh, new-delhi-dl) —
+ * so a search for either would otherwise show the city twice. Collapse a pair
+ * only when it can actually BE such a duplicate — one record without
+ * `population` (a hand-kept extra) and one with (its generated counterpart) —
+ * AND they share a normalized name and sit within half a degree of lat/lng.
+ * Two populated records are always two genuinely distinct cities, even inside
+ * the box (Kansas City MO/KS, Niagara Falls NY/ON, Bristol VA/TN straddle a
+ * border); mere homonyms — London, UK vs. London, ON, ~9° apart — are also
+ * left alone. `lookupPlace`/`?place=` is untouched.
+ */
+function dedupeSameCity(places: readonly Place[]): Place[] {
+  const byName = new Map<string, Place[]>();
+  for (const p of places) {
+    const key = normalizeKey(p.name);
+    const group = byName.get(key);
+    if (group) group.push(p);
+    else byName.set(key, [p]);
+  }
+  const drop = new Set<Place>();
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      if (drop.has(group[i])) continue;
+      for (let j = i + 1; j < group.length; j++) {
+        const b = group[j];
+        if (drop.has(b)) continue;
+        const a = group[i];
+        const samePlace = Math.abs(a.latitude - b.latitude) <= 0.5 && Math.abs(a.longitude - b.longitude) <= 0.5;
+        if (!samePlace) continue;
+        // Only an extras-vs-generated pair can be one city listed twice:
+        // extras carry no population, generated rows always do. Both
+        // populated ⇒ genuinely distinct twin cities — keep both.
+        if ((a.population === undefined) === (b.population === undefined)) continue;
+        drop.add(a.population === undefined ? a : b);
+      }
+    }
+  }
+  return drop.size === 0 ? places.slice() : places.filter((p) => !drop.has(p));
 }
 
 const BY_SLUG = new Map<string, Place>(ALL_PLACES.map((p) => [p.slug, p]));
@@ -194,11 +237,11 @@ const USAGE = {
       "?groomDob=YYYY-MM-DD & groomTob=HH:MM (optional) & (groomPlace | groomLat&groomLng&groomTz) & brideDob & brideTob & (bridePlace | …) — ashtakoota (36-guna) matching with the per-koota breakdown, dosha/parihara evaluation, and (when both birth times are given) the Mangal-dosha comparison",
     "GET /api/calendar.ics":
       "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
-    "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
+    "GET /api/places": "?q=<name> & country=US|CA|IN & limit=N — search the supported cities",
   },
   places: ["calgary", "new-delhi", "toronto", "vancouver", "edmonton", "new-york", "mumbai", "london"],
   placesCount: ALL_PLACES.length,
-  placeSearch: "every US & Canada city ≥10k people is a slug (e.g. austin-tx); discover them via GET /api/places?q=",
+  placeSearch: "every US & Canada city ≥10k people, and every India city/town ≥15k, is a slug (e.g. austin-tx, jaipur-rj); discover them via GET /api/places?q=",
   source: "https://github.com/SODIYAL/panchanga",
 };
 
@@ -588,14 +631,25 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "places": {
         const q = (first(query, "q") ?? "").trim();
         const key = normalizeKey(q);
+        // Hyphen-collapsed form so a squashed query ("dehradun", "jerseycity")
+        // still matches a multi-word NAME ("Dehra Dūn", "Jersey City"). Only
+        // the name is compacted — compacting the slug would glue the name to
+        // the state suffix ("dehradunut") and make ?q=nut a false hit.
+        const compactKey = key.replace(/-/g, "");
         const country = (first(query, "country") ?? "").toUpperCase();
         const rawLimit = Number(first(query, "limit"));
         const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 25;
-        const matches = ALL_PLACES.filter((p) => {
-          if ((country === "US" || country === "CA") && p.country !== country) return false;
+        const filtered = ALL_PLACES.filter((p) => {
+          if (country && p.country !== country) return false;
           if (!key) return true;
-          return p.slug.includes(key) || normalizeKey(p.name).includes(key);
+          const nameKey = normalizeKey(p.name);
+          return (
+            p.slug.includes(key) ||
+            nameKey.includes(key) ||
+            nameKey.replace(/-/g, "").includes(compactKey)
+          );
         });
+        const matches = dedupeSameCity(filtered);
         const places = matches.slice(0, limit).map((p) => ({
           slug: p.slug,
           name: p.name,
