@@ -38,20 +38,47 @@ Extends the engine from calendar (pañcāṅga + festivals) to natal computation
 | Timezone-safe local time | `time.ts` helpers |
 | Validation harness | sweph differential audit (has `SE_MEAN_NODE` / `SE_TRUE_NODE`) |
 
-## Decision points (resolve empirically, first thing)
+## Scripture-first policy (go-by-the-text)
 
-- **D1 — Rāhu/Ketu node type.** Drik offers BOTH "Mean Rahu/Ketu" and "True
-  Rahu/Ketu" as settings. Implement both; determine Drik's default by
-  comparing a computed chart against Drik's kundalī page for a known instant.
-  Mean−true oscillates up to ±1.75°, which flips rāśi near boundaries — this is
-  a real convention, not a nicety. API/type surface: `node?: "mean" | "true"`.
-- **D2 — House system.** V1 = whole-sign (rāśi = bhāva from lagna), the
-  dominant Vedic convention and Drik's kundalī default. Bhāva-chalit / KP are
-  out of v1 scope (documented).
+The śāstra supplies two different things, and the policy differs by layer:
+
+- **Positions (gaṇita)**: the Siddhāntic tradition's own directive is
+  **dṛk-tulya** — computation must agree with the observed sky (bīja
+  corrections exist precisely to keep tables true to observation). Using an
+  accurate modern ephemeris is therefore the scripture-compliant choice, not a
+  departure; it is what "Drik" in this project's name already means. The
+  reference implementations (Jagannatha Hora, Parashara's Light, Drik
+  Panchang) all do the same: Swiss-Ephemeris-grade positions under classical
+  rules.
+- **Rules (the horā layer)**: implemented from the texts, cited per rule —
+  **Bṛhat Parāśara Horā Śāstra** (chart construction, bhāvas, ṣoḍaśavarga
+  definitions, Vimśottarī daśā), cross-referenced with Phaladīpikā / Sārāvalī
+  where BPHS is ambiguous; **Muhūrta-Cintāmaṇi lineage** for the aṣṭakūṭa
+  tables. Every table and rule carries its source citation in a code comment
+  (same discipline as the festival rules). Where popular software deviates
+  from the text, the TEXT is the default and the deviation is an exposed
+  option, documented.
+- **Dual conformance**: positions validated against the Swiss Ephemeris via
+  the existing differential audit (dṛk fidelity); rules validated against
+  BPHS worked examples and cross-checked against Jagannatha Hora as the
+  reference implementation (śāstra fidelity).
+
+## Decision points
+
+- **D1 — Rāhu/Ketu node type: default MEAN (scriptural), "true" as option.**
+  Parāśara-era gaṇita computes the mean node; the true (osculating) node is a
+  modern refinement. Drik offers both as settings, so both are implemented;
+  `node?: "mean" | "true"` defaults to `"mean"`. Mean−true oscillates up to
+  ±1.75°, which flips rāśi near boundaries — outputs near a boundary carry the
+  usual margin provenance so the choice is visible when it matters.
+- **D2 — House system: whole-sign (BPHS).** Rāśi = bhāva from lagna — the
+  Parāśari convention and Drik's kundalī default. Bhāva-chalit / KP are out of
+  v1 scope (documented as deviations available later).
 - **D3 — Kūṭa table variants.** A few kūṭas have minor regional variants
-  (vaśya groupings, yoni pair tables). Pin to the tables Drik's guṇa-milan
-  uses, validated by reproducing published scores exactly; cite the classical
-  source for each table in code comments.
+  (vaśya groupings, yoni pair tables). Default to the Muhūrta-Cintāmaṇi
+  reading, cross-checked by reproducing Drik guṇa-milan scores; any place the
+  two disagree is pinned in a test and documented (festival-engine
+  "convention edge" discipline).
 
 ---
 
