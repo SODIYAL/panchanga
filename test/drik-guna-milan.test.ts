@@ -99,6 +99,25 @@ const RUNS: DrikRun[] = [
     kootas: { Varna: 1, Vashya: 2, Tara: 3, Yoni: 2, "Graha Maitri": 5, Gana: 6, Bhakoota: 7, Nadi: 8 },
     total: 34,
   },
+  {
+    // REAL-BIRTH-DATA end-to-end run (not an engineered mid-pada instant).
+    // Drik: Vara 1995-08-15 09:15 New Delhi (Revatī/Mīna, 354.25°); Kanya
+    // 1998-12-03 19:50 Mumbai (Rohiṇī/Vṛṣabha, 46.77°). Engine Moons:
+    // 354.26° / 46.79° — display-rounding agreement on arbitrary data.
+    // Total 19/36, "NOT Recommended due to Nadi Dosha" (same Antya nāḍī,
+    // different nakṣatra AND rāśi → no parihāra, matching our evaluation).
+    // Caught the third table correction of the fixture campaign: Yoni
+    // Gaja×Sarpa = 2 (engine had 3). Also newly pins Maitrī
+    // neutral/enemy (Jupiter–Venus) = 0.5 and Vaśya Jalacara×Chatuṣpada = 1.
+    name: "Run 5: real births — Revati/Meena (Delhi 1995) × Rohini/Vrishabha (Mumbai 1998)",
+    query: {
+      groomDob: "1995-08-15", groomTob: "09:15", groomPlace: "new-delhi",
+      brideDob: "1998-12-03", brideTob: "19:50", bridePlace: "mumbai",
+    },
+    janma: { groom: ["Revati", "Meena"], bride: ["Rohini", "Vrishabha"] },
+    kootas: { Varna: 1, Vashya: 1, Tara: 1.5, Yoni: 2, "Graha Maitri": 0.5, Gana: 6, Bhakoota: 7, Nadi: 0 },
+    total: 19,
+  },
 ];
 
 describe("Drik Panchang guna-milan conformance (per-kūṭa, transcribed fixtures)", () => {
