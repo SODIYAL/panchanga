@@ -292,9 +292,13 @@ ones to be aware of:
   `purnima-snana-*` is the next-morning *snāna-dāna* day Drik lists as "X Purnima". At
   far-western longitudes these are usually one civil day apart — both are correct, for
   different observances.
-- **Gauṇa (Vaiṣṇava) Ekādaśī — not yet emitted.** When an Ekādaśī is Daśamī-viddha,
-  Vaiṣṇavas fast the next day ("Gauṇa"). The engine emits only the Smārta date; the
-  second-day reckoning is future work.
+- **Gauṇa (Vaiṣṇava) Ekādaśī — emitted via the sampradāya profile.** When an Ekādaśī is
+  Daśamī-viddha at aruṇodaya, Vaiṣṇavas fast the next day ("Gauṇa"). The default (Smārta)
+  listing keeps the udaya day; `allRules(year, { sampradaya: "vaishnava" })` (or
+  `ekadashiRules(year, "vaishnava")`) applies the Vaiṣṇava nirṇaya — aruṇodaya
+  daśamī-vedha next-day shift, later day on vṛddhi — with the same rule ids and
+  "Vaishnava "-prefixed names. Two 2026 divergences (Yogini Jul 10→11, Prabodhini
+  Nov 20→21 at New Delhi) are pinned against published Vaiṣṇava listings.
 - **Ganga Dussehra, Balram Jayanti — definitional, follow HSNA.** Ganga Dussehra uses the
   adhika Jyeṣṭha when present (matching Drik); Balram Jayanti follows HSNA's Kṛṣṇa-Ṣaṣṭhī
   rather than Drik's Śukla-Ṣaṣṭhī.

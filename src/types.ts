@@ -52,6 +52,13 @@ export type TithiRef = number | "purnima" | "amavasya";
 /** Lunar fortnight. */
 export type Paksha = "shukla" | "krishna";
 
+/**
+ * Convention profile. `"smarta"` is the engine's default (Drik Panchang's
+ * default listing); `"vaishnava"` applies the Vaiṣṇava nirṇaya where it
+ * differs — currently the Ekādaśī daśamī-vedha rule (see `ekadashiRules`).
+ */
+export type Sampradaya = "smarta" | "vaishnava";
+
 // ───────────────────────────────────────────────────────────────────────────
 // The observance union — how a festival's civil date is determined
 // ───────────────────────────────────────────────────────────────────────────
@@ -87,6 +94,16 @@ export type Observance =
       nakshatra?: { name: string; window?: Kala; mode: "required" | "preferred" };
       avoidKarana?: "vishti";
       fallback?: "previous-day" | "next-day" | "nearest-window";
+      /**
+       * Vedha (contamination) clause — the Vaiṣṇava Ekādaśī rule. After the
+       * precedence policy picks a day, if the PREVIOUS tithi is still live at
+       * any moment of the `at` window on that day (⇔ the festival tithi begins
+       * only after that window opens), the observance shifts to the NEXT civil
+       * day. E.g. Vaiṣṇava Ekādaśī: daśamī touching aruṇodaya (the 4 ghaṭikās
+       * before sunrise) makes the day viddhā; the fast moves to the Dvādaśī
+       * day (Gauṇa Ekādaśī).
+       */
+      vedha?: { by: "previous-tithi"; at: Kala; shift: "next-day" };
       /**
        * Adhika-māsa policy in a leap-month year. Default = the nija (regular)
        * lunation. `"prefer-adhika"` observes in the ADHIKA lunation of the named
@@ -136,7 +153,7 @@ export type FestivalRule = {
   extended?: boolean;
   observance: Observance;
   /** Default "smarta". */
-  sampradaya?: "smarta" | "vaishnava";
+  sampradaya?: Sampradaya;
   meta?: { deity?: string; note?: string };
 };
 

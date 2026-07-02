@@ -97,6 +97,7 @@ export type {
   Kala,
   TithiRef,
   Paksha,
+  Sampradaya,
   Observance,
   FestivalRule,
   FestivalResult,
@@ -129,4 +130,5 @@ export {
   regionalFestivalRules,
   CHHATH_RULE,
   allRules,
+  type RuleProfile,
 } from "./rules.js";

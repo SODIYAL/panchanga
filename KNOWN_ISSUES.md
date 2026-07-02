@@ -6,7 +6,9 @@ it found are already fixed (see git history). This file is the residue.
 
 **Project decisions (set the target for everything below):**
 
-- **Sampradāya:** **Smārta** (Drik Panchang default). No Vaiṣṇava / ISKCON mode.
+- **Sampradāya:** **Smārta** (Drik Panchang default). A **Vaiṣṇava Ekādaśī profile**
+  exists (`allRules(year, { sampradaya: "vaishnava" })` — aruṇodaya daśamī-vedha /
+  Gauṇa shift); all other rules are currently sampradāya-independent.
 - **Authority of record:** **Drik Panchang** — every changed date is validated
   against Drik.
 
@@ -95,8 +97,11 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 
 Decided **Smārta**: on an Ekādaśī live at two consecutive sunrises the engine
 keeps the **earlier** udaya day (accepting daśamī-vedha, the Smārta householder
-convention). The stricter Vaiṣṇava "later day" rule is out of scope. Matches
-Drik's Smārta listing for 2026. No change.
+convention). Matches Drik's Smārta listing for 2026. No change to the default.
+*(Update: the stricter Vaiṣṇava reckoning is now available as an opt-in profile —
+`ekadashiRules(year, "vaishnava")` / `allRules(year, { sampradaya: "vaishnava" })` —
+implemented as `precedence: "second"` + the `vedha` grammar clause; see
+`test/vaishnava-ekadashi.test.ts`.)*
 
 ### R2. Pradoṣa window length *(confirmed correct)*
 
