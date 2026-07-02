@@ -18,7 +18,7 @@
 // astronomy-engine inlined, so the Vercel ESM lambda never resolves
 // astronomy-engine's CommonJS build (whose `Body` enum defeats Node's named-
 // export detection). Types come from the real library declarations.
-import type { GeoLocation, FestivalRule } from "../dist/index.js";
+import type { GeoLocation, FestivalRule, FestivalResult, Sampradaya } from "../dist/index.js";
 import {
   dailyPanchanga,
   computeFestivals,
@@ -178,9 +178,11 @@ const USAGE = {
   description: "Drik Panchanga (Smārta, pūrṇimānta) — tithi, nakṣatra, festivals & eclipses.",
   endpoints: {
     "GET /api/panchanga": "?date=YYYY-MM-DD (default today) & (place=<slug> | lat&lng&tz)",
-    "GET /api/festivals": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
+    "GET /api/festivals":
+      "?year=YYYY (default current) & (place=<slug> | lat&lng&tz) & sampradaya=smarta|vaishnava (Ekādaśī convention, default smarta) & detail=full (adds instants, rule, notes)",
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
-    "GET /api/calendar.ics": "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) — subscribable iCalendar feed",
+    "GET /api/calendar.ics":
+      "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
     "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
   },
   places: ["calgary", "new-delhi", "toronto", "vancouver", "edmonton", "new-york", "mumbai", "london"],
@@ -191,10 +193,87 @@ const USAGE = {
 
 /** Which festivals an ICS feed carries. Default = the named festivals a temple
  *  calendar shows; "all" adds the twice-monthly recurring vratas; "core" = §4. */
-function rulesForSet(set: string, year: number): FestivalRule[] {
-  if (set === "all") return allRules(year);
+function rulesForSet(set: string, year: number, sampradaya: Sampradaya): FestivalRule[] {
+  if (set === "all") return allRules(year, { sampradaya });
   if (set === "core") return CORE_RULES;
   return [...CORE_RULES, ...oneOffFestivalRules(year), ...regionalFestivalRules(year), CHHATH_RULE];
+}
+
+/** Parse `?sampradaya=` (Ekādaśī convention). Default Smārta. */
+function resolveSampradaya(q: Query): Sampradaya {
+  const raw = (first(q, "sampradaya") ?? "smarta").toLowerCase();
+  if (raw !== "smarta" && raw !== "vaishnava") {
+    throw new ApiError(400, `invalid sampradaya "${raw}"; expected "smarta" or "vaishnava".`);
+  }
+  return raw;
+}
+
+// ── Provenance ──────────────────────────────────────────────────────────────
+// Every date the API emits can explain itself: `basis` is a one-line
+// human-readable digest of the rule that decided it; `detail=full` adds the
+// raw observance, the key instants, and the engine's per-rule notes.
+
+const RASHI_NAMES = [
+  "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
+  "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena",
+] as const;
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+const tithiWord = (t: number | string): string => (typeof t === "string" ? t : `tithi ${t}`);
+
+/** One-line human-readable statement of how a rule resolves its date. */
+function describeObservance(rule: FestivalRule): string {
+  const o = rule.observance;
+  const m = rule.month?.purnimanta ?? "";
+  switch (o.kind) {
+    case "tithi-pervades": {
+      const parts = [
+        `${m} ${o.paksha} ${tithiWord(o.tithi)} pervading the ${o.window} window (precedence: ${o.precedence})`,
+      ];
+      if (o.nakshatra) parts.push(`${o.nakshatra.name} nakshatra (${o.nakshatra.mode})`);
+      if (o.avoidKarana === "vishti") parts.push("Bhadra (Vishti) excluded");
+      if (o.vedha) parts.push(`previous-tithi vedha at ${o.vedha.at} shifts to the next day`);
+      if (o.adhika === "prefer-adhika") parts.push("prefers the adhika lunation");
+      return parts.join("; ");
+    }
+    case "solar-ingress":
+      return `Sun's sidereal ingress into ${RASHI_NAMES[o.rashi] ?? `rashi ${o.rashi}`}`;
+    case "moonrise":
+      return `${m} ${o.paksha} ${tithiWord(o.tithi)} live at moonrise`;
+    case "solar-arghya":
+      return `${m} ${o.paksha} ${tithiWord(o.tithi)}: sunset arghya + next-sunrise arghya`;
+    case "derived":
+      return `${Math.abs(o.offsetDays)} day(s) ${o.offsetDays >= 0 ? "after" : "before"} ${o.from}`;
+    case "nakshatra-pervades":
+      return `${o.nakshatra} nakshatra at sunrise with the Sun in ${RASHI_NAMES[o.solarRashi] ?? `rashi ${o.solarRashi}`}`;
+    case "weekday-relative":
+      return `latest ${WEEKDAY_NAMES[o.weekday] ?? `weekday ${o.weekday}`} before ${o.from}`;
+  }
+}
+
+/** "Nov 20, 07:16" in the location's own timezone. */
+function fmtLocal(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
+}
+
+/** Multi-line provenance text for an ICS VEVENT description. */
+function eventDescription(rule: FestivalRule, r: FestivalResult, tz: string): string {
+  const parts = [describeObservance(rule)];
+  if (r.instants.tithiStart && r.instants.tithiEnd) {
+    parts.push(`Tithi: ${fmtLocal(r.instants.tithiStart, tz)} – ${fmtLocal(r.instants.tithiEnd, tz)} (${tz})`);
+  } else if (r.instants.ingress) {
+    parts.push(`Ingress: ${fmtLocal(r.instants.ingress, tz)} (${tz})`);
+  }
+  if (r.instants.moonrise) parts.push(`Moonrise: ${fmtLocal(r.instants.moonrise, tz)} (${tz})`);
+  parts.push("Computed astronomically (drik) — verify with your local authority before ritual use.");
+  return parts.join("\n");
 }
 
 const nextDay = (date: string): string => {
@@ -221,7 +300,10 @@ function fold(line: string): string {
 }
 
 /** Build an iCalendar document of all-day festival events. */
-function buildIcs(calName: string, events: { id: string; name: string; date: string }[]): string {
+function buildIcs(
+  calName: string,
+  events: { id: string; name: string; date: string; description?: string }[],
+): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -241,6 +323,7 @@ function buildIcs(calName: string, events: { id: string; name: string; date: str
       `DTSTART;VALUE=DATE:${d}`,
       `DTEND;VALUE=DATE:${nextDay(e.date).replace(/-/g, "")}`,
       `SUMMARY:${icsEscape(e.name)}`,
+      ...(e.description ? [`DESCRIPTION:${icsEscape(e.description)}`] : []),
       "TRANSP:TRANSPARENT",
       "END:VEVENT",
     );
@@ -266,13 +349,33 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "festivals": {
         const loc = resolveLocation(query);
         const year = resolveYear(query, now.year);
-        const names = new Map(allRules(year).map((r) => [r.id, r.displayName]));
-        const { results, diagnostics } = computeFestivals(year, loc, { rules: allRules(year) });
+        const sampradaya = resolveSampradaya(query);
+        const full = (first(query, "detail") ?? "").toLowerCase() === "full";
+        const rules = allRules(year, { sampradaya });
+        const ruleById = new Map(rules.map((r) => [r.id, r]));
+        const { results, diagnostics } = computeFestivals(year, loc, { rules });
         const festivals = results
           .filter((r) => r.date)
-          .map((r) => ({ id: r.id, name: names.get(r.id) ?? r.id, date: r.date, month: r.monthLabel.purnimanta }))
+          .map((r) => {
+            const rule = ruleById.get(r.id);
+            return {
+              id: r.id,
+              name: rule?.displayName ?? r.id,
+              date: r.date,
+              month: r.monthLabel.purnimanta,
+              sampradaya: rule?.sampradaya ?? "smarta",
+              basis: rule ? describeObservance(rule) : "",
+              ...(full
+                ? { instants: r.instants, rule: rule?.observance, notes: r.diagnostics }
+                : {}),
+            };
+          })
           .sort((a, b) => a.date.localeCompare(b.date));
-        return { status: 200, body: { year, location: loc, count: festivals.length, festivals, diagnostics }, cacheSeconds: 604_800 };
+        return {
+          status: 200,
+          body: { year, location: loc, sampradaya, count: festivals.length, festivals, diagnostics },
+          cacheSeconds: 604_800,
+        };
       }
       case "eclipses": {
         const loc = resolveLocation(query);
@@ -286,20 +389,27 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "calendar": {
         const loc = resolveLocation(query);
         const set = (first(query, "set") ?? "major").toLowerCase();
+        const sampradaya = resolveSampradaya(query);
         // A single year if pinned, else a rolling current+next year so a
         // subscriber always has upcoming festivals without re-subscribing.
         const years = first(query, "year") ? [resolveYear(query, now.year)] : [now.year, now.year + 1];
         const seen = new Set<string>();
-        const events: { id: string; name: string; date: string }[] = [];
+        const events: { id: string; name: string; date: string; description?: string }[] = [];
         for (const y of years) {
-          const rules = rulesForSet(set, y);
-          const names = new Map(rules.map((r) => [r.id, r.displayName]));
+          const rules = rulesForSet(set, y, sampradaya);
+          const ruleById = new Map(rules.map((r) => [r.id, r]));
           for (const r of computeFestivals(y, loc, { rules }).results) {
             if (!r.date) continue;
             const uid = `${r.id}-${r.date}`;
             if (seen.has(uid)) continue;
             seen.add(uid);
-            events.push({ id: r.id, name: names.get(r.id) ?? r.id, date: r.date });
+            const rule = ruleById.get(r.id);
+            events.push({
+              id: r.id,
+              name: rule?.displayName ?? r.id,
+              date: r.date,
+              description: rule ? eventDescription(rule, r, loc.timeZone) : undefined,
+            });
           }
         }
         events.sort((a, b) => a.date.localeCompare(b.date));

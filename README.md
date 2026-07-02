@@ -161,6 +161,15 @@ Calendar once and the festivals appear (and stay current — the feed defaults t
 *current + next year* window). `?set=major` (default, the named festivals a temple shows),
 `?set=all` (every vrata too), or `?set=core` (the 24 §4 festivals).
 
+**Provenance & profile.** Every festival the API emits explains itself: each JSON entry
+carries a one-line `basis` (the rule that decided the date — tithi, kāla window,
+precedence, vedha/Bhadra clauses) and its `sampradaya`; add `detail=full` for the raw
+observance rule, the key `instants` (tithi start/end, window, ingress, …) and the
+engine's per-rule `notes`. Each `.ics` VEVENT carries a `DESCRIPTION` with the basis, the
+local-time tithi interval, and a verify-with-your-authority note. `sampradaya=vaishnava`
+(on `/api/festivals` and `/api/calendar.ics?set=all`) switches the Ekādaśī convention to
+the Vaiṣṇava nirṇaya (aruṇodaya daśamī-vedha / Gauṇa shift).
+
 **Location** is a `place` slug or explicit `lat`, `lng` & `tz`. Every **US & Canada city
 of ≥10,000 people (~4,800 places)** is a slug — `calgary-ab`, `austin-tx`, `jersey-city-nj`
 — generated offline from GeoNames data with [`scripts/gen-places.mjs`](scripts/gen-places.mjs)
