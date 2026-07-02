@@ -83,6 +83,22 @@ const RUNS: DrikRun[] = [
     kootas: { Varna: 1, Vashya: 0.5, Tara: 1.5, Yoni: 2, "Graha Maitri": 3, Gana: 1, Bhakoota: 0, Nadi: 8 },
     total: 17,
   },
+  {
+    // Drik: Vara 2000-01-14 22:20 MUMBAI (Aśvinī/Meṣa, 1.67° — same Moon as
+    // Run 1's New Delhi groom: geocentric, location-independent); Kanya
+    // 2000-01-15 21:25 New Delhi (Bharaṇī/Meṣa, 14.99°). Total 34/36,
+    // "Union is Excellent". Cell-for-cell agreement, newly pinning Yoni
+    // Aśva×Gaja = 2 and Gaṇa Deva-groom × Mānava-bride = 6, plus same-rāśi
+    // Bhakūṭa = 7 and same-class Vaśya = 2.
+    name: "Run 4: Ashwini p1 (Mumbai) × Bharani p1 (Ashwa×Gaja yoni, Deva×Manava gana)",
+    query: {
+      groomDob: "2000-01-14", groomTob: "22:20", groomPlace: "mumbai",
+      brideDob: "2000-01-15", brideTob: "21:25", bridePlace: "new-delhi",
+    },
+    janma: { groom: ["Ashwini", "Mesha"], bride: ["Bharani", "Mesha"] },
+    kootas: { Varna: 1, Vashya: 2, Tara: 3, Yoni: 2, "Graha Maitri": 5, Gana: 6, Bhakoota: 7, Nadi: 8 },
+    total: 34,
+  },
 ];
 
 describe("Drik Panchang guna-milan conformance (per-kūṭa, transcribed fixtures)", () => {
