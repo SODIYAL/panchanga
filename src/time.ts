@@ -238,6 +238,51 @@ export function nextLocalDayStartUTC(date: Date, tz: string): Date {
   return localMidnightUTC(p.year, p.month, p.day + 1, tz);
 }
 
+/**
+ * Returns the UTC `Date` for a local wall-clock time: `hour`:`minute` on the
+ * local calendar date (year, month 1-based, day) in `tz`.
+ *
+ * The calendar date is taken as given (no anchor instant is involved, so
+ * far-east zones like UTC+13/+14 cannot shift it), and the UTC offset is
+ * measured at the resulting instant itself — so a birth after a spring-forward
+ * transition converts with the post-transition offset, not the offset at
+ * midnight.
+ *
+ * Edge conventions: a wall-clock time skipped by spring-forward (e.g. 02:30
+ * when 02:00→03:00) has no instant; it shifts forward by the transition amount
+ * (02:30 → the 03:30 instant), the common library convention. An ambiguous
+ * fall-back time resolves to its FIRST occurrence.
+ */
+export function localCivilTimeToUTC(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  tz: string,
+): Date {
+  const targetMin = hour * 60 + minute;
+  // Minutes between the local wall-clock reading at instant `t` and the
+  // requested wall-clock time (0 ⇔ exact match).
+  const residualMin = (t: number): number => {
+    const p = tzParts(new Date(t), tz);
+    const dayDeltaMin =
+      (Date.UTC(p.year, p.month - 1, p.day) - Date.UTC(year, month - 1, day)) / 60_000;
+    return dayDeltaMin + p.hour * 60 + p.minute + p.second / 60 - targetMin;
+  };
+  // Guess: the requested number of wall-clock minutes after the DST-correct
+  // local midnight, as REAL elapsed time. Exact unless the interval from
+  // midnight to the target crosses a DST transition; one offset correction
+  // fixes that. If the corrected instant STILL doesn't read back as the target,
+  // the wall time sits in a spring-forward gap and does not exist — keep the
+  // guess, which is the forward-shifted reading.
+  const guess = localMidnightUTC(year, month, day, tz).getTime() + targetMin * 60_000;
+  const r0 = residualMin(guess);
+  if (r0 === 0) return new Date(guess);
+  const corrected = guess - r0 * 60_000;
+  return residualMin(corrected) === 0 ? new Date(corrected) : new Date(guess);
+}
+
 // ---------------------------------------------------------------------------
 // 2. Rise / set
 // ---------------------------------------------------------------------------

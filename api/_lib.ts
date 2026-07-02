@@ -31,7 +31,7 @@ import {
   solarEclipses,
   kundali,
   moonKundali,
-  startOfLocalDayUTC,
+  localCivilTimeToUTC,
   janmaFacts,
   gunaMilan,
   mangalDosha,
@@ -209,6 +209,19 @@ function rulesForSet(set: string, year: number, sampradaya: Sampradaya): Festiva
   return [...CORE_RULES, ...oneOffFestivalRules(year), ...regionalFestivalRules(year), CHHATH_RULE];
 }
 
+/**
+ * Local birth date + wall-clock time (default noon) → UTC instant.
+ * tz-safe (the calendar date is used as given — no anchor instant that a
+ * UTC+13/+14 zone could push onto the next local day) and DST-safe (the
+ * offset is measured at the birth instant itself, so a birth after a
+ * spring-forward transition is not an hour off).
+ */
+function birthInstant(dob: string, tob: string | undefined, tz: string): Date {
+  const [y, mo, d] = dob.split("-").map(Number);
+  const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
+  return localCivilTimeToUTC(y, mo, d, hh, mm, tz);
+}
+
 /** Parse `?sampradaya=` (Ekādaśī convention). Default Smārta. */
 function resolveSampradaya(q: Query): Sampradaya {
   const raw = (first(q, "sampradaya") ?? "smarta").toLowerCase();
@@ -234,11 +247,13 @@ const tithiWord = (t: number | string): string => (typeof t === "string" ? t : `
 /** One-line human-readable statement of how a rule resolves its date. */
 function describeObservance(rule: FestivalRule): string {
   const o = rule.observance;
-  const m = rule.month?.purnimanta ?? "";
+  // Month prefix ("Kartika ") — empty (not a stray leading space) for the
+  // rules that carry no month label.
+  const m = rule.month?.purnimanta ? `${rule.month.purnimanta} ` : "";
   switch (o.kind) {
     case "tithi-pervades": {
       const parts = [
-        `${m} ${o.paksha} ${tithiWord(o.tithi)} pervading the ${o.window} window (precedence: ${o.precedence})`,
+        `${m}${o.paksha} ${tithiWord(o.tithi)} pervading the ${o.window} window (precedence: ${o.precedence})`,
       ];
       if (o.nakshatra) parts.push(`${o.nakshatra.name} nakshatra (${o.nakshatra.mode})`);
       if (o.avoidKarana === "vishti") parts.push("Bhadra (Vishti) excluded");
@@ -249,9 +264,9 @@ function describeObservance(rule: FestivalRule): string {
     case "solar-ingress":
       return `Sun's sidereal ingress into ${RASHI_NAMES[o.rashi] ?? `rashi ${o.rashi}`}`;
     case "moonrise":
-      return `${m} ${o.paksha} ${tithiWord(o.tithi)} live at moonrise`;
+      return `${m}${o.paksha} ${tithiWord(o.tithi)} live at moonrise`;
     case "solar-arghya":
-      return `${m} ${o.paksha} ${tithiWord(o.tithi)}: sunset arghya + next-sunrise arghya`;
+      return `${m}${o.paksha} ${tithiWord(o.tithi)}: sunset arghya + next-sunrise arghya`;
     case "derived":
       return `${Math.abs(o.offsetDays)} day(s) ${o.offsetDays >= 0 ? "after" : "before"} ${o.from}`;
     case "nakshatra-pervades":
@@ -401,10 +416,7 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         if (nodeRaw !== "mean" && nodeRaw !== "true") {
           throw new ApiError(400, `invalid node "${nodeRaw}"; expected "mean" (Parashara-era default) or "true".`);
         }
-        // Local birth date+time → UTC instant: local midnight (tz-aware) + tob.
-        const localMidnight = startOfLocalDayUTC(new Date(`${dob}T12:00:00Z`), loc.timeZone);
-        const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
-        const birth = new Date(localMidnight.getTime() + (hh * 60 + mm) * 60_000);
+        const birth = birthInstant(dob, tob, loc.timeZone);
         try {
           const chart = tob
             ? kundali(birth, loc, { node: nodeRaw })
@@ -443,9 +455,7 @@ export function handle(path: string, query: Query, now: { today: string; year: n
           if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
             throw new ApiError(400, `invalid ${prefix}Tob "${tob}"; expected HH:MM, or omit if unknown.`);
           }
-          const midnight = startOfLocalDayUTC(new Date(`${dob}T12:00:00Z`), loc.timeZone);
-          const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
-          const birth = new Date(midnight.getTime() + (hh * 60 + mm) * 60_000);
+          const birth = birthInstant(dob, tob, loc.timeZone);
           return { loc, birth, timeKnown: tob !== undefined };
         };
         const groom = party("groom");

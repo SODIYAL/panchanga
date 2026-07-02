@@ -13,6 +13,7 @@ export {
   localDayString,
   startOfLocalDayUTC,
   nextLocalDayStartUTC,
+  localCivilTimeToUTC,
   validateLocation,
   riseSet,
   moonrise,

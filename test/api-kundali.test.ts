@@ -44,6 +44,26 @@ describe("api /kundali", () => {
     expect(mean.longitude).not.toBeCloseTo(tru.longitude, 4);
   });
 
+  it("REGRESSION: far-east zones (UTC+13/+14) chart the given birth date, not the next day", () => {
+    // The old noon-UTC-anchored construction resolved the birth to dob+1 in
+    // any zone ahead of UTC+12 (noon UTC is already past local midnight of
+    // the next day there) — a whole-day error: the Moon moves ~13°/day.
+    const r = call({ dob: "2000-06-15", tob: "12:00", lat: "1.87", lng: "-157.4", tz: "Pacific/Kiritimati" });
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    // 12:00 local in UTC+14 = 22:00 UTC the previous civil day.
+    expect(new Date(b.kundali.birth).toISOString()).toBe("2000-06-14T22:00:00.000Z");
+  });
+
+  it("REGRESSION: spring-forward day births use the post-transition offset", () => {
+    // New York 2021-03-14 (02:00 EST → 03:00 EDT): 07:00 EDT = 11:00 UTC.
+    // The old midnight-plus-minutes arithmetic produced 12:00 UTC (08:00
+    // local) — an hour late, ~15° of lagna.
+    const r = call({ dob: "2021-03-14", tob: "07:00", place: "new-york" });
+    expect(r.status).toBe(200);
+    expect(new Date((r.body as any).kundali.birth).toISOString()).toBe("2021-03-14T11:00:00.000Z");
+  });
+
   it("validates inputs: bad dob / tob / node / polar latitude", () => {
     expect(call({ dob: "23-01-2026", place: "new-delhi" }).status).toBe(400);
     expect(call({ dob: "2026-01-23", tob: "9:30am", place: "new-delhi" }).status).toBe(400);
