@@ -45,6 +45,7 @@
     "build": "tsc -p tsconfig.json && node scripts/build-api-engine.mjs && tsc -p tsconfig.api.json",
     "prepare": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "audit:ephemeris": "npm run prepare && node scripts/ephemeris-audit.mjs",
     "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
@@ -52,6 +53,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
+    "sweph": "^2.10.3-7",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

@@ -66,6 +66,27 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 - **Path to fix.** Source the kṣaya redistribution convention, consume the
   `kshaya` flag in the generators, and add a kṣaya-year regression test.
 
+### O4. Saṅkrānti instants sit ~6 min from Swiss-Ephemeris Lahiri — *needs authority calibration*
+
+- **What.** The differential ephemeris audit (`EPHEMERIS_AUDIT.md`, regenerate with
+  `npm run audit:ephemeris`) shows the engine's sidereal solar-ingress instants sit a
+  near-constant **~5.6 min** from the Swiss Ephemeris' Lahiri, driven by a ~14″
+  constant offset between the engine's Lahiri realization (SE anchor 23.853222° +
+  IAU 1976 precession) and the Swiss Ephemeris' internal `SE_SIDM_LAHIRI` model. The
+  lunar side is fine: tithi/nakṣatra boundaries agree within 45 s (systematic, not
+  random), sunrise within 3.5 s.
+- **Impact.** An ingress within ~6 min of local midnight (or of sunset, for Makara) is
+  undecidable between the two Lahiri models. In the 2024–2032 × 4-city sweep this flips
+  3 saṅkrānti-family dates (2031 London Makar Saṅkrānti Jan 14↔15, dragging Lohri;
+  2031 Sydney Mithuna Saṅkrānti Jun 15↔16). Two further razor-edge tithi decisions flip
+  on the ~34 s lunar offset (2028 New Delhi Bhīṣma Aṣṭamī — a `max-window-fraction` tie
+  decided by ~40 s of window coverage; 2028 Sydney Mārgaśīrṣa Saṅkaṣṭī). The validated
+  2026 New Delhi/Calgary baseline is unaffected.
+- **Path to fix.** Check one disputed ingress (2031 London Makar Saṅkrānti) against
+  Drik. If Drik sides with Swiss-Lahiri, recalibrate the anchor constant (a
+  constants-level change in `src/ayanamsha.ts`, not a dependency change), then re-run
+  the audit and the conformance suites.
+
 ---
 
 ## Resolved

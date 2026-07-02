@@ -258,10 +258,17 @@ use.
 ## Development
 
 ```sh
-npm install      # install dependencies
-npm test         # vitest run — unit suites + Drik-Panchang conformance
-npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
+npm install              # install dependencies
+npm test                 # vitest run — unit suites + Drik-Panchang conformance
+npm run build            # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
+npm run audit:ephemeris  # differential audit vs the Swiss Ephemeris → EPHEMERIS_AUDIT.md
 ```
+
+The **ephemeris audit** measures every aṅga boundary and replays every festival-date
+decision (2024–2032 × 4 cities) against the Swiss Ephemeris (see
+[`EPHEMERIS_AUDIT.md`](EPHEMERIS_AUDIT.md)): tithi boundaries agree within 45 s and only
+~0.07% of festival decisions are ephemeris-sensitive; saṅkrānti instants carry a ~6-min
+Lahiri-model offset (`KNOWN_ISSUES.md` O4).
 
 Tests live in `test/` (~370 cases): per-module unit suites plus the Drik-Panchang
 conformance checks — `conformance.test.ts` (2026 New Delhi) and **five Calgary suites**
