@@ -61,6 +61,28 @@ const RUNS: DrikRun[] = [
     kootas: { Varna: 1, Vashya: 1, Tara: 3, Yoni: 2, "Graha Maitri": 5, Gana: 0, Bhakoota: 0, Nadi: 8 },
     total: 20,
   },
+  {
+    // Drik: Vara 2000-01-05 06:50 New Delhi (Mūla/Dhanu, 241.67°); Kanya
+    // 2000-01-09 04:35 New Delhi (Śravaṇa/Makara, 288.31°). Total 17/36,
+    // Bhakuta dosha verdict. Cell-for-cell agreement, pinning FOUR
+    // previously untested cells at once:
+    //  • Vaśya half-sign splits (Dhanu 1st half → Mānava; Makara 2nd half →
+    //    Jalacara) AND the Mānava×Jalacara = 0.5 cell.
+    //  • Graha-Maitrī both-neutral (Jupiter/Saturn) = 3.
+    //  • Gaṇa Rākṣasa-groom × Deva-bride = 1.
+    //  • Tārā scoring on a one-direction-malefic case: 1.5 (girl→boy count
+    //    25 ≡ 7 Vadha) — Drik's own labels ("Janma/Kshema") are both benefic
+    //    names yet they award 1.5, confirming labels are display quirks and
+    //    POINTS are the conformance target.
+    name: "Run 3: Mula p1 × Shravana p3 (half-sign vashya, N/N maitri, Rak×Deva gana)",
+    query: {
+      groomDob: "2000-01-05", groomTob: "06:50", groomPlace: "new-delhi",
+      brideDob: "2000-01-09", brideTob: "04:35", bridePlace: "new-delhi",
+    },
+    janma: { groom: ["Mula", "Dhanu"], bride: ["Shravana", "Makara"] },
+    kootas: { Varna: 1, Vashya: 0.5, Tara: 1.5, Yoni: 2, "Graha Maitri": 3, Gana: 1, Bhakoota: 0, Nadi: 8 },
+    total: 17,
+  },
 ];
 
 describe("Drik Panchang guna-milan conformance (per-kūṭa, transcribed fixtures)", () => {
