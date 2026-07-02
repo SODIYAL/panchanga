@@ -46,9 +46,31 @@ export interface DashaPeriod {
   /** Length in Vimśottarī years (the first is the birth balance). */
   years: number;
   /** Antardaśās (bhukti) within this mahādaśā, starting from its own lord. */
-  antardashas: { lord: Graha; start: Date; end: Date }[];
+  antardashas: AntardashaPeriod[];
   /** Set on the first period when the janma nakṣatra fraction is edge-close. */
   balanceNote?: string;
+}
+
+export interface AntardashaPeriod {
+  lord: Graha;
+  start: Date;
+  end: Date;
+  /**
+   * Pratyantardaśās (the third level), present when `levels >= 3` was
+   * requested: proportional cuts of the antardaśā starting from its own lord
+   * (BPHS — the same self-first ladder at every level). Clipped to birth in
+   * the balance region like the antardaśās themselves.
+   */
+  pratyantardashas?: { lord: Graha; start: Date; end: Date }[];
+}
+
+export interface VimshottariOptions {
+  /**
+   * Ladder depth: 2 = mahā + antar (default), 3 = + pratyantar. Deeper
+   * levels divide by 120 each time — a pratyantara is minutes-to-months —
+   * so precision claims should mind the janma-nakṣatra margin note.
+   */
+  levels?: 2 | 3;
 }
 
 /** Nakṣatra lord: the 9-cycle across the 27 nakṣatras (Aśvinī → Ketu, …). */
@@ -60,7 +82,11 @@ export function nakshatraLord(nakshatraIndex: number): Graha {
  * The full Vimśottarī ladder from birth: the balance mahādaśā plus complete
  * periods to 120 years, each with its antardaśās.
  */
-export function vimshottariDasha(janma: JanmaFacts): DashaPeriod[] {
+export function vimshottariDasha(
+  janma: JanmaFacts,
+  opts: VimshottariOptions = {},
+): DashaPeriod[] {
+  const levels = opts.levels ?? 2;
   const startIdx = ((janma.janmaNakshatra % 9) + 9) % 9;
   const periods: DashaPeriod[] = [];
   let cursorMs = janma.birth.getTime();
@@ -80,7 +106,7 @@ export function vimshottariDasha(janma: JanmaFacts): DashaPeriod[] {
     // full-period ladder: compute the full ladder from the notional full
     // start, keep what falls after birth.
     const notionalStartMs = end.getTime() - fullYears * YEAR_MS;
-    const antardashas: { lord: Graha; start: Date; end: Date }[] = [];
+    const antardashas: AntardashaPeriod[] = [];
     let subCursor = notionalStartMs;
     for (let j = 0; j < 9; j++) {
       const [subLord, subYears] = VIMSHOTTARI_SEQUENCE[(startIdx + k + j) % 9];
@@ -89,11 +115,32 @@ export function vimshottariDasha(janma: JanmaFacts): DashaPeriod[] {
       const subEnd = subCursor + subLenMs;
       subCursor = subEnd;
       if (subEnd <= start.getTime()) continue; // fully before birth (balance tail)
-      antardashas.push({
+      const antar: AntardashaPeriod = {
         lord: subLord,
         start: new Date(Math.max(subStart, start.getTime())),
         end: new Date(subEnd),
-      });
+      };
+      if (levels >= 3) {
+        // Pratyantardaśās: the same self-first proportional ladder inside the
+        // NOTIONAL antardaśā, clipped to birth (balance region) like antars.
+        const pratyantars: { lord: Graha; start: Date; end: Date }[] = [];
+        let pCursor = subStart;
+        for (let p = 0; p < 9; p++) {
+          const [pLord, pYears] = VIMSHOTTARI_SEQUENCE[(startIdx + k + j + p) % 9];
+          const pLenMs = (pYears / VIMSHOTTARI_TOTAL_YEARS) * subLenMs;
+          const pStart = pCursor;
+          const pEnd = pCursor + pLenMs;
+          pCursor = pEnd;
+          if (pEnd <= start.getTime()) continue; // before birth
+          pratyantars.push({
+            lord: pLord,
+            start: new Date(Math.max(pStart, start.getTime())),
+            end: new Date(pEnd),
+          });
+        }
+        antar.pratyantardashas = pratyantars;
+      }
+      antardashas.push(antar);
     }
 
     const period: DashaPeriod = { lord, start, end, years, antardashas };

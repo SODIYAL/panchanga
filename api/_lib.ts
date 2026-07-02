@@ -31,6 +31,7 @@ import {
   solarEclipses,
   kundali,
   moonKundali,
+  SHODASHAVARGA,
   localCivilTimeToUTC,
   janmaFacts,
   gunaMilan,
@@ -188,7 +189,7 @@ const USAGE = {
       "?year=YYYY (default current) & (place=<slug> | lat&lng&tz) & sampradaya=smarta|vaishnava (Ekādaśī convention, default smarta) & detail=full (adds instants, rule, notes)",
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
     "GET /api/kundali":
-      "?dob=YYYY-MM-DD & tob=HH:MM (local birth time; omit if unknown → Moon-chart) & (place=<slug> | lat&lng&tz) & node=mean|true (Rahu/Ketu model, default mean) — janma-kundali: grahas, lagna+window, bhavas, navamsa, Vimshottari dasha",
+      "?dob=YYYY-MM-DD & tob=HH:MM (local birth time; omit if unknown → Moon-chart) & (place=<slug> | lat&lng&tz) & node=mean|true (default mean) & vargas=all|D3,D10,… (BPHS shodashavarga divisional charts) & dashaLevels=2|3 (3 adds pratyantardashas) — janma-kundali: grahas, lagna+window, bhavas, navamsa+vargottama, Vimshottari dasha",
     "GET /api/guna-milan":
       "?groomDob=YYYY-MM-DD & groomTob=HH:MM (optional) & (groomPlace | groomLat&groomLng&groomTz) & brideDob & brideTob & (bridePlace | …) — ashtakoota (36-guna) matching with the per-koota breakdown, dosha/parihara evaluation, and (when both birth times are given) the Mangal-dosha comparison",
     "GET /api/calendar.ics":
@@ -428,11 +429,31 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         if (nodeRaw !== "mean" && nodeRaw !== "true") {
           throw new ApiError(400, `invalid node "${nodeRaw}"; expected "mean" (Parashara-era default) or "true".`);
         }
+        // Divisional charts: "all" or a comma list of shodashavarga keys.
+        const vargasRaw = first(query, "vargas");
+        let vargas: readonly string[] | "all" | undefined;
+        if (vargasRaw !== undefined) {
+          if (vargasRaw.toLowerCase() === "all") vargas = "all";
+          else {
+            const list = vargasRaw.split(",").map((v) => v.trim().toUpperCase());
+            const bad = list.filter((v) => !(SHODASHAVARGA as readonly string[]).includes(v));
+            if (bad.length > 0) {
+              throw new ApiError(400, `unknown varga(s) "${bad.join(", ")}"; expected a subset of ${SHODASHAVARGA.join(", ")} or "all".`);
+            }
+            vargas = list;
+          }
+        }
+        const levelsRaw = first(query, "dashaLevels");
+        if (levelsRaw !== undefined && levelsRaw !== "2" && levelsRaw !== "3") {
+          throw new ApiError(400, `invalid dashaLevels "${levelsRaw}"; expected 2 (maha+antar) or 3 (+pratyantar).`);
+        }
+        const dashaLevels = levelsRaw === "3" ? 3 : 2;
         const { birth, timeKnown } = resolveBirth(dob, tob, loc.timeZone, "dob");
+        const chartOpts = { node: nodeRaw, vargas, dashaLevels } as Parameters<typeof kundali>[2];
         try {
           const chart = timeKnown
-            ? kundali(birth, loc, { node: nodeRaw })
-            : moonKundali(birth, loc, { node: nodeRaw });
+            ? kundali(birth, loc, chartOpts)
+            : moonKundali(birth, loc, chartOpts);
           return {
             status: 200,
             body: {
