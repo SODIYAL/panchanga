@@ -210,16 +210,34 @@ function rulesForSet(set: string, year: number, sampradaya: Sampradaya): Festiva
 }
 
 /**
- * Local birth date + wall-clock time (default noon) → UTC instant.
- * tz-safe (the calendar date is used as given — no anchor instant that a
- * UTC+13/+14 zone could push onto the next local day) and DST-safe (the
- * offset is measured at the birth instant itself, so a birth after a
- * spring-forward transition is not an hour off).
+ * Resolve a birth (dob, optional tob) in `tz` to a UTC instant, strictly:
+ * dob must be a REAL calendar date (no silent Feb-30 → Mar-2 rollover) within
+ * the engine's validated 1900–2200 envelope; tob must be 24h HH:MM. The
+ * wall-clock → UTC conversion is DST-correct (`localCivilTimeToUTC`), so a
+ * birth on a spring-forward/fall-back day resolves to the right instant.
  */
-function birthInstant(dob: string, tob: string | undefined, tz: string): Date {
-  const [y, mo, d] = dob.split("-").map(Number);
+function resolveBirth(
+  dob: string | undefined,
+  tob: string | undefined,
+  tz: string,
+  label: string,
+): { birth: Date; timeKnown: boolean } {
+  if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    throw new ApiError(400, `invalid or missing ${label} "${dob ?? ""}"; expected YYYY-MM-DD (local birth date).`);
+  }
+  const [y, m, d] = dob.split("-").map(Number);
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() + 1 !== m || check.getUTCDate() !== d) {
+    throw new ApiError(400, `${label} "${dob}" is not a real calendar date.`);
+  }
+  if (y < 1900 || y > 2200) {
+    throw new ApiError(400, `${label} year ${y} is outside the validated 1900–2200 range.`);
+  }
+  if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
+    throw new ApiError(400, `invalid ${label.replace("Dob", "Tob").replace("dob", "tob")} "${tob}"; expected HH:MM (24h), or omit if unknown.`);
+  }
   const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
-  return localCivilTimeToUTC(y, mo, d, hh, mm, tz);
+  return { birth: localCivilTimeToUTC(y, m, d, hh, mm, tz), timeKnown: tob !== undefined };
 }
 
 /** Parse `?sampradaya=` (Ekādaśī convention). Default Smārta. */
@@ -405,28 +423,22 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "kundali": {
         const loc = resolveLocation(query);
         const dob = first(query, "dob");
-        if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-          throw new ApiError(400, `invalid or missing dob "${dob ?? ""}"; expected YYYY-MM-DD (local birth date).`);
-        }
         const tob = first(query, "tob");
-        if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
-          throw new ApiError(400, `invalid tob "${tob}"; expected HH:MM (24h local birth time), or omit if unknown.`);
-        }
         const nodeRaw = (first(query, "node") ?? "mean").toLowerCase();
         if (nodeRaw !== "mean" && nodeRaw !== "true") {
           throw new ApiError(400, `invalid node "${nodeRaw}"; expected "mean" (Parashara-era default) or "true".`);
         }
-        const birth = birthInstant(dob, tob, loc.timeZone);
+        const { birth, timeKnown } = resolveBirth(dob, tob, loc.timeZone, "dob");
         try {
-          const chart = tob
+          const chart = timeKnown
             ? kundali(birth, loc, { node: nodeRaw })
             : moonKundali(birth, loc, { node: nodeRaw });
           return {
             status: 200,
             body: {
-              input: { dob, tob: tob ?? null, timeUnknown: !tob, location: loc, node: nodeRaw },
+              input: { dob, tob: tob ?? null, timeUnknown: !timeKnown, location: loc, node: nodeRaw },
               kundali: chart,
-              note: !tob
+              note: !timeKnown
                 ? "birth time unknown: Moon-chart mode (bhavas from chandra lagna; no lagna-dependent outputs). Positions computed for local noon; the Moon moves ~13°/day, so janma nakshatra may be uncertain on nakshatra-transition days."
                 : undefined,
             },
@@ -446,17 +458,21 @@ export function handle(path: string, query: Query, now: { today: string; year: n
             lng: first(query, `${prefix}Lng`),
             tz: first(query, `${prefix}Tz`),
           };
-          const loc = resolveLocation(sub);
-          const dob = first(query, `${prefix}Dob`);
-          if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-            throw new ApiError(400, `invalid or missing ${prefix}Dob; expected YYYY-MM-DD.`);
+          let loc: ResolvedLocation;
+          try {
+            loc = resolveLocation(sub);
+          } catch (e) {
+            // Prefix the location error so the caller knows WHICH party's
+            // location is missing/wrong.
+            throw new ApiError(400, `${prefix}: ${(e as Error).message.replace("?place=", `?${prefix}Place=`)}`);
           }
-          const tob = first(query, `${prefix}Tob`);
-          if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
-            throw new ApiError(400, `invalid ${prefix}Tob "${tob}"; expected HH:MM, or omit if unknown.`);
-          }
-          const birth = birthInstant(dob, tob, loc.timeZone);
-          return { loc, birth, timeKnown: tob !== undefined };
+          const { birth, timeKnown } = resolveBirth(
+            first(query, `${prefix}Dob`),
+            first(query, `${prefix}Tob`),
+            loc.timeZone,
+            `${prefix}Dob`,
+          );
+          return { loc, birth, timeKnown };
         };
         const groom = party("groom");
         const bride = party("bride");

@@ -108,3 +108,50 @@ describe("api /guna-milan", () => {
     expect(handle("/api/guna-milan", noLoc, NOW).status).toBe(400);
   });
 });
+
+describe("api hardening", () => {
+  it("every routed endpoint has a matching Vercel adapter file (api/<route>.ts)", async () => {
+    // The core routes by path segment, but Vercel only serves api/<name>.ts
+    // files — a route without its adapter 404s in production while passing
+    // every handle()-level test. This guard makes that impossible to ship.
+    const { readdirSync } = await import("node:fs");
+    const adapters = new Set(readdirSync("api").filter((f) => f.endsWith(".ts") && !f.startsWith("_")).map((f) => f.replace(/\.ts$/, "")));
+    for (const route of ["panchanga", "festivals", "eclipses", "kundali", "guna-milan", "calendar", "places", "index"]) {
+      expect(adapters.has(route), `missing api/${route}.ts adapter`).toBe(true);
+    }
+  });
+
+  it("birth time on a DST spring-forward day resolves to the correct wall clock", () => {
+    // 2026-03-08, America/Denver springs forward at 02:00 → 03:00. A naive
+    // midnight+minutes conversion lands 09:30 births one hour off (15° of lagna).
+    const r = call({ dob: "2026-03-08", tob: "09:30", lat: "39.74", lng: "-104.99", tz: "America/Denver" });
+    expect(r.status).toBe(200);
+    const birth = new Date((r.body as any).kundali.birth);
+    const shown = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(birth);
+    expect(shown).toBe("09:30");
+  });
+
+  it("birth time on a fall-back day also resolves correctly", () => {
+    const r = call({ dob: "2026-11-01", tob: "09:30", lat: "39.74", lng: "-104.99", tz: "America/Denver" });
+    const birth = new Date((r.body as any).kundali.birth);
+    const shown = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(birth);
+    expect(shown).toBe("09:30");
+  });
+
+  it("rejects impossible calendar dates instead of silently rolling over", () => {
+    const r = call({ dob: "2026-02-30", tob: "09:30", place: "new-delhi" });
+    expect(r.status).toBe(400);
+    expect((r.body as any).error).toContain("not a real calendar date");
+  });
+
+  it("rejects birth years outside the validated 1900–2200 envelope", () => {
+    expect(call({ dob: "1850-05-01", place: "new-delhi" }).status).toBe(400);
+    expect(call({ dob: "2250-05-01", place: "new-delhi" }).status).toBe(400);
+  });
+
+  it("guna-milan location errors say which party is wrong", () => {
+    const r = handle("/api/guna-milan", { groomDob: "1996-08-15", groomPlace: "new-delhi", brideDob: "1998-12-03" }, NOW);
+    expect(r.status).toBe(400);
+    expect((r.body as any).error).toContain("bride");
+  });
+});
