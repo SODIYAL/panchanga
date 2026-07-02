@@ -670,15 +670,25 @@ md.push(
     `${tithiFlips} tithi/moonrise decision(s) flipped.`,
 );
 md.push(``);
-md.push(
-  `2. **Saṅkrānti dates carry a ~${(ingressStats.mean / 60).toFixed(0)}-minute ayanāṁśa-MODEL uncertainty — a calibration issue, ` +
-    `not a precision issue.** Engine-mean-Lahiri − Swiss-Lahiri is a near-constant ` +
-    `${ayanMeanStats.mean.toFixed(1)}″; at the sidereal Sun's ${sunArcsecPerSec.toFixed(3)}″/s that predicts a ` +
-    `${predictedIngressMin.toFixed(1)}-min ingress shift — matching the observed ` +
-    `${(ingressStats.mean / 60).toFixed(1)} min. ${solarFlips} date flip(s) in this sweep are of this kind; ` +
-    `an ingress within ~6 min of local midnight (or of sunset, for Makara) is undecidable between the ` +
-    `two Lahiri models and should be validated against the authority of record.`,
-);
+if (Math.abs(ingressStats.mean) < 60) {
+  md.push(
+    `2. **The sidereal solar side is CALIBRATED to Swiss-Lahiri.** Saṅkrānti ingress instants ` +
+      `agree within ${fmtSec(ingressStats.maxabs)} (ayanāṁśa offset ` +
+      `${ayanMeanStats.mean.toFixed(2)}″ mean) — the O4 recalibration (Lahiri anchor 23.8570923° + ` +
+      `IAU 2006 precession, pinned by Drik's 2031 London Makar Saṅkrānti = Jan 15) removed the ` +
+      `former ~14″ / ~5.6-min model offset. ${solarFlips} saṅkrānti-family flip(s) remain in this sweep.`,
+  );
+} else {
+  md.push(
+    `2. **Saṅkrānti dates carry a ~${(ingressStats.mean / 60).toFixed(0)}-minute ayanāṁśa-MODEL uncertainty — a calibration issue, ` +
+      `not a precision issue.** Engine-mean-Lahiri − Swiss-Lahiri is a near-constant ` +
+      `${ayanMeanStats.mean.toFixed(1)}″; at the sidereal Sun's ${sunArcsecPerSec.toFixed(3)}″/s that predicts a ` +
+      `${predictedIngressMin.toFixed(1)}-min ingress shift — matching the observed ` +
+      `${(ingressStats.mean / 60).toFixed(1)} min. ${solarFlips} date flip(s) in this sweep are of this kind; ` +
+      `an ingress within ~6 min of local midnight (or of sunset, for Makara) is undecidable between the ` +
+      `two Lahiri models and should be validated against the authority of record.`,
+  );
+}
 md.push(``);
 md.push(
   `3. **Sunrise & kāla windows are a non-issue** (≤ ${fmtSec(Math.max(...sunrisePerLoc.map((s) => s.stats?.maxabs ?? 0)))} ` +
@@ -686,11 +696,14 @@ md.push(
 );
 md.push(``);
 md.push(
-  `4. **Practical consequence:** keeping astronomy-engine is defensible for tithi-family festivals ` +
+  `4. **Practical consequence:** keeping astronomy-engine is defensible ` +
     `(the flip rate is ~${((100 * flips.length) / totalModeled).toFixed(2)}% per rule-instance over this sweep, all near-boundary cases). ` +
-    `The cheapest accuracy win is on the sidereal SOLAR side: reconcile the Lahiri anchor with the ` +
-    `authority of record (a constants-level calibration, not a dependency change), which resolves the ` +
-    `saṅkrānti-family flips.`,
+    (Math.abs(ingressStats.mean) < 60
+      ? `Residual flips are razor-edge lunar decisions genuinely undecidable at the ephemeris level; ` +
+        `they need the authority of record, not a better ephemeris.`
+      : `The cheapest accuracy win is on the sidereal SOLAR side: reconcile the Lahiri anchor with the ` +
+        `authority of record (a constants-level calibration, not a dependency change), which resolves the ` +
+        `saṅkrānti-family flips.`),
 );
 md.push(``);
 md.push(`## Part A — boundary timing (engine − Swiss, i.e. Δ = swe − engine)`);

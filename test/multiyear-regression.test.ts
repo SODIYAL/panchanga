@@ -105,3 +105,31 @@ describe("Vat Sāvitrī / Shani Jayanti use daytime-vyāpti (day Amāvāsyā pre
     expect(dateOf(2024, DELHI, "vat-savitri-vrat")).toBe("2024-06-06");
   });
 });
+
+describe("Lahiri realization is Swiss-Ephemeris-aligned (O4 recalibration)", () => {
+  // The anchor 23.8570923° + IAU 2006 precession matches Swiss Ephemeris
+  // SE_SIDM_LAHIRI (≡ Drik Panchang) to < 0.05″ over 1900–2200. The decisive
+  // conformance datum: Drik lists 2031 London Makar Saṅkrānti on Jan 15; the
+  // pre-calibration model (23.853222° + IAU 1976, −13.9″ off) produced Jan 14.
+  const LONDON: GeoLocation = { latitude: 51.5074, longitude: -0.1278, timeZone: "Europe/London" };
+  const SYDNEY: GeoLocation = { latitude: -33.8688, longitude: 151.2093, timeZone: "Australia/Sydney" };
+
+  it("2031 London Makar Saṅkrānti → Jan 15 (= Drik, verified 2026-07-02)", () => {
+    expect(dateOf(2031, LONDON, "makar-sankranti")).toBe("2031-01-15");
+  });
+  it("2031 London Lohri (Makar − 1) follows → Jan 14", () => {
+    expect(dateOf(2031, LONDON, "lohri")).toBe("2031-01-14");
+  });
+  it("2031 Sydney Mithuna Saṅkrānti → Jun 16 (Swiss-aligned; same calibration)", () => {
+    expect(dateOf(2031, SYDNEY, "sankranti-mithuna")).toBe("2031-06-16");
+  });
+  // The validated envelope must not move: the audit showed every 2024–2030
+  // Makara ingress sits > 6 min from a date boundary at the tested cities.
+  it("Makar Saṅkrānti 2024–2028 New Delhi dates unchanged by the recalibration", () => {
+    expect(dateOf(2024, DELHI, "makar-sankranti")).toBe("2024-01-15");
+    expect(dateOf(2025, DELHI, "makar-sankranti")).toBe("2025-01-14");
+    expect(dateOf(2026, DELHI, "makar-sankranti")).toBe("2026-01-14");
+    expect(dateOf(2027, DELHI, "makar-sankranti")).toBe("2027-01-15");
+    expect(dateOf(2028, DELHI, "makar-sankranti")).toBe("2028-01-15");
+  });
+});

@@ -8,11 +8,11 @@ Differential audit of every aṅga boundary and every festival-date decision, co
 
 1. **Ephemeris precision is NOT the dominant error source for tithi-based dates.** The engine's tithi boundaries sit a *systematic* 33.5 s from the Swiss Ephemeris (never more than 45.0 s) — far below astronomy-engine's stated ±1′ worst case (~2 min of tithi time). Across 6708 modeled festival decisions, only 2 tithi/moonrise decision(s) flipped.
 
-2. **Saṅkrānti dates carry a ~6-minute ayanāṁśa-MODEL uncertainty — a calibration issue, not a precision issue.** Engine-mean-Lahiri − Swiss-Lahiri is a near-constant -13.8″; at the sidereal Sun's 0.041″/s that predicts a 5.6-min ingress shift — matching the observed 5.6 min. 3 date flip(s) in this sweep are of this kind; an ingress within ~6 min of local midnight (or of sunset, for Makara) is undecidable between the two Lahiri models and should be validated against the authority of record.
+2. **The sidereal solar side is CALIBRATED to Swiss-Lahiri.** Saṅkrānti ingress instants agree within 36.7 s (ayanāṁśa offset -0.00″ mean) — the O4 recalibration (Lahiri anchor 23.8570923° + IAU 2006 precession, pinned by Drik's 2031 London Makar Saṅkrānti = Jan 15) removed the former ~14″ / ~5.6-min model offset. 0 saṅkrānti-family flip(s) remain in this sweep.
 
 3. **Sunrise & kāla windows are a non-issue** (≤ 3.5 s offset) — window edges contribute nothing at decision level.
 
-4. **Practical consequence:** keeping astronomy-engine is defensible for tithi-family festivals (the flip rate is ~0.07% per rule-instance over this sweep, all near-boundary cases). The cheapest accuracy win is on the sidereal SOLAR side: reconcile the Lahiri anchor with the authority of record (a constants-level calibration, not a dependency change), which resolves the saṅkrānti-family flips.
+4. **Practical consequence:** keeping astronomy-engine is defensible (the flip rate is ~0.03% per rule-instance over this sweep, all near-boundary cases). Residual flips are razor-edge lunar decisions genuinely undecidable at the ephemeris level; they need the authority of record, not a better ephemeris.
 
 ## Part A — boundary timing (engine − Swiss, i.e. Δ = swe − engine)
 
@@ -41,27 +41,27 @@ Worst 5:
 
 ### Nakṣatra boundaries (sidereal Moon crossing k·13°20′)
 
-n=3250 · mean 31.6 s · median 31.5 s · p95 |Δ| 36.3 s · p99 |Δ| 37.7 s · max |Δ| 39.7 s
+n=3250 · mean 6.4 s · median 6.4 s · p95 |Δ| 9.5 s · p99 |Δ| 10.5 s · max |Δ| 12.0 s
 
 | \|Δ\| bucket | boundaries | share |
 |---|---:|---:|
-| ≤5 s | 0 | 0.0% |
-| 5–15 s | 0 | 0.0% |
-| 15–30 s | 964 | 29.7% |
-| 30–60 s | 2286 | 70.3% |
+| ≤5 s | 773 | 23.8% |
+| 5–15 s | 2477 | 76.2% |
+| 15–30 s | 0 | 0.0% |
+| 30–60 s | 0 | 0.0% |
 | 1–2 min | 0 | 0.0% |
 | >2 min | 0 | 0.0% |
 
 ### Saṅkrānti (sidereal Sun ingress) instants
 
-n=468 · mean 5.6 min · median 5.6 min · p95 |Δ| 6.2 min · p99 |Δ| 6.3 min · max |Δ| 6.3 min
+n=468 · mean 0.7 s · median 0.7 s · p95 |Δ| 27.2 s · p99 |Δ| 36.7 s · max |Δ| 36.7 s
 
 The sidereal Sun moves ~1°/day, so ayanāṁśa-model and solar-position differences translate to time offsets ~1440× larger per degree than for the Moon — this is why saṅkrānti instants show the largest Δ.
 
 ### Ayanāṁśa (Lahiri), engine − Swiss, arcseconds
 
-- engine `{nutation:true}` − `swe_get_ayanamsa_ut`: n=108 · mean -3.5″ · median -1.6″ · p95 |Δ| 17.6″ · p99 |Δ| 18.8″ · max |Δ| 19.0″
-- engine mean − `swe_get_ayanamsa_ut`: n=108 · mean -13.8″ · median -13.8″ · p95 |Δ| 13.9″ · p99 |Δ| 13.9″ · max |Δ| 13.9″
+- engine `{nutation:true}` − `swe_get_ayanamsa_ut`: n=108 · mean 10.3″ · median 12.2″ · p95 |Δ| 17.9″ · p99 |Δ| 18.2″ · max |Δ| 18.6″
+- engine mean − `swe_get_ayanamsa_ut`: n=108 · mean -0.0″ · median -0.0″ · p95 |Δ| 0.0″ · p99 |Δ| 0.0″ · max |Δ| 0.0″
 
 ### Sunrise (upper limb, refracted), Δ = swe − engine, seconds
 
@@ -80,20 +80,17 @@ For each rule the engine's own tithi interval is replaced by the Swiss-Ephemeris
 |---|---:|---:|---:|
 | tithi-pervades | 5016 | 5016 | 1 |
 | moonrise | 1104 | 1009 (+95 in rite-specific fallback, not replayed) | 1 |
-| solar-ingress | 468 | 468 | 2 |
+| solar-ingress | 468 | 468 | 0 |
 | solar-arghya | 36 | 36 | 0 |
 | nakshatra-pervades | 35 | 35 | 0 |
 | anchored | 144 | 144 | 0 |
 
-### Date flips (5)
+### Date flips (2)
 
 | year | location | festival | engine | Swiss | Δstart | Δend | margin |
 |---|---|---|---|---|---:|---:|---:|
 | 2028 | new-delhi | bhishma-ashtami (tithi-pervades) | 2028-02-04 | 2028-02-03 | -36.3 s | -34.5 s | 52.3 min |
 | 2028 | sydney | sankashti-chaturthi-margashirsha (moonrise) | 2028-11-06 | (falls to rite-specific fallback) | -33.8 s | -32.6 s | — |
-| 2031 | london | makar-sankranti (solar-ingress) | 2031-01-14 | 2031-01-15 | 5.3 min | 5.3 min | — |
-| 2031 | london | lohri (derived (via makar-sankranti)) | 2031-01-13 | 2031-01-14 | — | — | — |
-| 2031 | sydney | sankranti-mithuna (solar-ingress) | 2031-06-15 | 2031-06-16 | 5.8 min | 5.8 min | — |
 
 ### Near misses (decision margin < 5 min, no flip) — 116
 
