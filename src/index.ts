@@ -92,6 +92,40 @@ export {
   type DayMuhurtas,
 } from "./panchanga.js";
 
+// ── Jyotiṣa: grahas, kuṇḍalī, daśā ──────────────────────────────────────────
+export {
+  GRAHA_NAMES,
+  RASHI_NAMES,
+  grahaLongitude,
+  grahaPosition,
+  grahaPositions,
+  meanNodeSidereal,
+  trueNodeSidereal,
+  janmaFacts,
+  type Graha,
+  type GrahaOptions,
+  type GrahaPosition,
+  type JanmaFacts,
+} from "./grahas.js";
+export {
+  tropicalAscendant,
+  siderealLagna,
+  lagnaWindow,
+  navamsaRashi,
+  kundali,
+  moonKundali,
+  type Kundali,
+  type KundaliGraha,
+  type LagnaWindow,
+} from "./kundali.js";
+export {
+  VIMSHOTTARI_SEQUENCE,
+  VIMSHOTTARI_TOTAL_YEARS,
+  nakshatraLord,
+  vimshottariDasha,
+  type DashaPeriod,
+} from "./dashas.js";
+
 // ── Observance-rule grammar (the keystone) ──────────────────────────────────
 export type {
   Kala,

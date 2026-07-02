@@ -29,6 +29,9 @@ import {
   CHHATH_RULE,
   lunarEclipses,
   solarEclipses,
+  kundali,
+  moonKundali,
+  startOfLocalDayUTC,
 } from "../api-engine/index.js";
 import { PLACES } from "./places.generated.js";
 
@@ -181,6 +184,8 @@ const USAGE = {
     "GET /api/festivals":
       "?year=YYYY (default current) & (place=<slug> | lat&lng&tz) & sampradaya=smarta|vaishnava (Ekādaśī convention, default smarta) & detail=full (adds instants, rule, notes)",
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
+    "GET /api/kundali":
+      "?dob=YYYY-MM-DD & tob=HH:MM (local birth time; omit if unknown → Moon-chart) & (place=<slug> | lat&lng&tz) & node=mean|true (Rahu/Ketu model, default mean) — janma-kundali: grahas, lagna+window, bhavas, navamsa, Vimshottari dasha",
     "GET /api/calendar.ics":
       "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
     "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
@@ -376,6 +381,43 @@ export function handle(path: string, query: Query, now: { today: string; year: n
           body: { year, location: loc, sampradaya, count: festivals.length, festivals, diagnostics },
           cacheSeconds: 604_800,
         };
+      }
+      case "kundali": {
+        const loc = resolveLocation(query);
+        const dob = first(query, "dob");
+        if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+          throw new ApiError(400, `invalid or missing dob "${dob ?? ""}"; expected YYYY-MM-DD (local birth date).`);
+        }
+        const tob = first(query, "tob");
+        if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
+          throw new ApiError(400, `invalid tob "${tob}"; expected HH:MM (24h local birth time), or omit if unknown.`);
+        }
+        const nodeRaw = (first(query, "node") ?? "mean").toLowerCase();
+        if (nodeRaw !== "mean" && nodeRaw !== "true") {
+          throw new ApiError(400, `invalid node "${nodeRaw}"; expected "mean" (Parashara-era default) or "true".`);
+        }
+        // Local birth date+time → UTC instant: local midnight (tz-aware) + tob.
+        const localMidnight = startOfLocalDayUTC(new Date(`${dob}T12:00:00Z`), loc.timeZone);
+        const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
+        const birth = new Date(localMidnight.getTime() + (hh * 60 + mm) * 60_000);
+        try {
+          const chart = tob
+            ? kundali(birth, loc, { node: nodeRaw })
+            : moonKundali(birth, loc, { node: nodeRaw });
+          return {
+            status: 200,
+            body: {
+              input: { dob, tob: tob ?? null, timeUnknown: !tob, location: loc, node: nodeRaw },
+              kundali: chart,
+              note: !tob
+                ? "birth time unknown: Moon-chart mode (bhavas from chandra lagna; no lagna-dependent outputs). Positions computed for local noon; the Moon moves ~13°/day, so janma nakshatra may be uncertain on nakshatra-transition days."
+                : undefined,
+            },
+            cacheSeconds: 31_536_000, // a birth chart is immutable
+          };
+        } catch (e) {
+          throw new ApiError(400, (e as Error).message); // e.g. polar-latitude lagna
+        }
       }
       case "eclipses": {
         const loc = resolveLocation(query);

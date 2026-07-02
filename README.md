@@ -27,6 +27,12 @@ remote API.
 - **Time & kāla windows** — timezone/DST-safe sunrise, sunset and moonrise, the muhūrta
   windows (pūrvāhna, madhyāhna, aparāhna, pradoṣa, niśīta, brahma-muhūrta, …), and the
   weekday day-part periods **Rāhu Kāla, Yamaganda, Gulika, and Abhijit**.
+- **Jyotiṣa (janma-kuṇḍalī)** — the nine grahas (sidereal, with mean **and** true
+  Rāhu/Ketu — mean is the Parāśara-era default), lagna with a **birth-time-uncertainty
+  window**, whole-sign bhāvas (BPHS), navāṁśa, janma nakṣatra/pada, and the full
+  **Vimśottarī daśā** ladder — every position carrying its arcminute margin to the
+  nearest rāśi/nakṣatra boundary, and a Moon-chart mode for unknown birth times.
+  Differentially validated against the Swiss Ephemeris (bodies < 0.3′, lagna < 0.05′).
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
   pervasion-day selector that resolves ~195 observances to civil dates and **never
   silently drops**: every miss is explained in `diagnostics`. Selection conventions are
@@ -152,6 +158,7 @@ engine is deterministic, so responses cache hard at the edge).
 GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
 GET /api/festivals?year=2026&place=calgary            → the year's festival dates
 GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
+GET /api/kundali?dob=1996-08-15&tob=09:30&place=calgary → janma-kundali (birth chart)
 GET /api/calendar.ics?place=calgary                  → subscribable iCalendar feed
 GET /api/places?q=austin                             → search the supported cities
 GET /api                                              → usage + example places
