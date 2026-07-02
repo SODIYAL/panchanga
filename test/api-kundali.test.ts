@@ -155,3 +155,30 @@ describe("api hardening", () => {
     expect((r.body as any).error).toContain("bride");
   });
 });
+
+describe("api /kundali — vargas & dashaLevels", () => {
+  const base = { dob: "1996-08-15", tob: "09:30", place: "new-delhi" };
+
+  it("vargas=all returns all 16 divisional placements; comma list returns that subset", () => {
+    const r = call({ ...base, vargas: "all", dashaLevels: "3" });
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(Object.keys(b.kundali.grahas[0].vargas)).toHaveLength(16);
+    expect(Object.keys(b.kundali.lagna.vargas)).toHaveLength(16);
+    expect(b.kundali.grahas[0].vargas.D9).toBe(b.kundali.grahas[0].navamsaName);
+    expect(b.kundali.dasha[1].antardashas[0].pratyantardashas).toHaveLength(9);
+    const sub = call({ ...base, vargas: "d3,D60" }); // case-insensitive
+    expect(Object.keys((sub.body as any).kundali.grahas[0].vargas)).toEqual(["D3", "D60"]);
+  });
+
+  it("defaults stay lean: no vargas map, no pratyantars", () => {
+    const b = call(base).body as any;
+    expect(b.kundali.grahas[0].vargas).toBeUndefined();
+    expect(b.kundali.dasha[1].antardashas[0].pratyantardashas).toBeUndefined();
+  });
+
+  it("validates vargas and dashaLevels", () => {
+    expect(call({ ...base, vargas: "D5" }).status).toBe(400);
+    expect(call({ ...base, dashaLevels: "4" }).status).toBe(400);
+  });
+});

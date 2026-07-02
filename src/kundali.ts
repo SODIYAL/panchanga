@@ -39,6 +39,7 @@ import {
   type JanmaFacts,
 } from "./grahas.js";
 import { vimshottariDasha, type DashaPeriod } from "./dashas.js";
+import { vargaRashi, isVargottama, SHODASHAVARGA, type Varga } from "./vargas.js";
 
 const DEG = Math.PI / 180;
 const DEG_PER_RASHI = 30;
@@ -179,6 +180,39 @@ export interface KundaliGraha extends GrahaPosition {
   /** Navāṁśa (D9) rāśi index & name. */
   navamsa: number;
   navamsaName: string;
+  /** Vargottama: same rāśi in D1 and D9 (classical strength marker). */
+  vargottama: boolean;
+  /**
+   * Requested divisional-chart placements (varga → rāśi name), present when
+   * `vargas` was passed to `kundali`/`moonKundali`. D9 is always available
+   * via `navamsa`/`navamsaName` regardless.
+   */
+  vargas?: Record<string, string>;
+}
+
+export interface KundaliOptions extends GrahaOptions {
+  /**
+   * Divisional charts to compute per graha (and for the lagna):
+   * a subset of the ṣoḍaśavarga (e.g. `["D3", "D10", "D60"]`) or `"all"`
+   * for the full sixteen. Omit for the default (D9-only via `navamsa`).
+   */
+  vargas?: readonly Varga[] | "all";
+  /** Vimśottarī ladder depth: 2 = mahā+antar (default), 3 = +pratyantar. */
+  dashaLevels?: 2 | 3;
+}
+
+/** Resolve the vargas option to a concrete list (empty = none requested). */
+function vargaList(opt: KundaliOptions["vargas"]): readonly Varga[] {
+  if (opt === "all") return SHODASHAVARGA;
+  return opt ?? [];
+}
+
+/** varga → rāśi-name map for a longitude. */
+function vargaMap(longitude: number, vargas: readonly Varga[]): Record<string, string> | undefined {
+  if (vargas.length === 0) return undefined;
+  const out: Record<string, string> = {};
+  for (const v of vargas) out[v] = RASHI_NAMES[vargaRashi(longitude, v)];
+  return out;
 }
 
 export interface Kundali {
@@ -196,6 +230,8 @@ export interface Kundali {
     degreesInRashi: number;
     navamsa: number;
     navamsaName: string;
+    /** Requested divisional placements of the lagna (see KundaliOptions). */
+    vargas?: Record<string, string>;
     /** PROVENANCE: how long this lagna rāśi holds around the birth time. */
     window: LagnaWindow;
   };
@@ -215,17 +251,20 @@ export interface Kundali {
  * For an UNKNOWN birth time, call `moonKundali` instead — it omits every
  * lagna-dependent output rather than fabricating one.
  */
-export function kundali(birth: Date, loc: GeoLocation, opts: GrahaOptions = {}): Kundali {
+export function kundali(birth: Date, loc: GeoLocation, opts: KundaliOptions = {}): Kundali {
   validateLocation(loc);
   const node = opts.node ?? "mean";
   const lagnaLon = siderealLagna(birth, loc);
   const lagnaRashi = Math.floor(lagnaLon / DEG_PER_RASHI) % 12;
   const janma = janmaFacts(birth, loc);
+  const vargas = vargaList(opts.vargas);
   const grahas: KundaliGraha[] = grahaPositions(birth, { node }).map((p) => ({
     ...p,
     bhava: ((p.rashi - lagnaRashi + 12) % 12) + 1,
     navamsa: navamsaRashi(p.longitude),
     navamsaName: RASHI_NAMES[navamsaRashi(p.longitude)],
+    vargottama: isVargottama(p.longitude),
+    vargas: vargaMap(p.longitude, vargas),
   }));
   return {
     birth,
@@ -239,13 +278,14 @@ export function kundali(birth: Date, loc: GeoLocation, opts: GrahaOptions = {}):
       degreesInRashi: lagnaLon % DEG_PER_RASHI,
       navamsa: navamsaRashi(lagnaLon),
       navamsaName: RASHI_NAMES[navamsaRashi(lagnaLon)],
+      vargas: vargaMap(lagnaLon, vargas),
       window: lagnaWindow(birth, loc),
     },
     chandraLagna: janma.janmaRashi,
     chandraLagnaName: janma.janmaRashiName,
     grahas,
     janma,
-    dasha: vimshottariDasha(janma),
+    dasha: vimshottariDasha(janma, { levels: opts.dashaLevels }),
   };
 }
 
@@ -258,16 +298,19 @@ export function kundali(birth: Date, loc: GeoLocation, opts: GrahaOptions = {}):
 export function moonKundali(
   birth: Date,
   loc: GeoLocation,
-  opts: GrahaOptions = {},
+  opts: KundaliOptions = {},
 ): Omit<Kundali, "lagna"> & { timeUnknown: true } {
   validateLocation(loc);
   const node = opts.node ?? "mean";
   const janma = janmaFacts(birth, loc);
+  const vargas = vargaList(opts.vargas);
   const grahas: KundaliGraha[] = grahaPositions(birth, { node }).map((p) => ({
     ...p,
     bhava: ((p.rashi - janma.janmaRashi + 12) % 12) + 1, // from chandra lagna
     navamsa: navamsaRashi(p.longitude),
     navamsaName: RASHI_NAMES[navamsaRashi(p.longitude)],
+    vargottama: isVargottama(p.longitude),
+    vargas: vargaMap(p.longitude, vargas),
   }));
   return {
     birth,
@@ -278,7 +321,7 @@ export function moonKundali(
     chandraLagnaName: janma.janmaRashiName,
     grahas,
     janma,
-    dasha: vimshottariDasha(janma),
+    dasha: vimshottariDasha(janma, { levels: opts.dashaLevels }),
     timeUnknown: true,
   };
 }

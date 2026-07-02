@@ -117,14 +117,25 @@ export {
   moonKundali,
   type Kundali,
   type KundaliGraha,
+  type KundaliOptions,
   type LagnaWindow,
 } from "./kundali.js";
+export {
+  SHODASHAVARGA,
+  VARGA_NAMES,
+  vargaRashi,
+  shodashavarga,
+  isVargottama,
+  type Varga,
+} from "./vargas.js";
 export {
   VIMSHOTTARI_SEQUENCE,
   VIMSHOTTARI_TOTAL_YEARS,
   nakshatraLord,
   vimshottariDasha,
   type DashaPeriod,
+  type AntardashaPeriod,
+  type VimshottariOptions,
 } from "./dashas.js";
 export { gunaMilan, type GunaMilanResult, type KootaScore } from "./kootas.js";
 export { mangalDosha, kalaSarpa, type MangalDosha, type KalaSarpa } from "./doshas.js";

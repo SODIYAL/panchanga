@@ -29,9 +29,11 @@ remote API.
   weekday day-part periods **Rāhu Kāla, Yamaganda, Gulika, and Abhijit**.
 - **Jyotiṣa (janma-kuṇḍalī)** — the nine grahas (sidereal, with mean **and** true
   Rāhu/Ketu — mean is the Parāśara-era default), lagna with a **birth-time-uncertainty
-  window**, whole-sign bhāvas (BPHS), navāṁśa, janma nakṣatra/pada, and the full
-  **Vimśottarī daśā** ladder — every position carrying its arcminute margin to the
-  nearest rāśi/nakṣatra boundary, and a Moon-chart mode for unknown birth times.
+  window**, whole-sign bhāvas (BPHS), the **full ṣoḍaśavarga** (all 16 BPHS divisional
+  charts, D1–D60, incl. the unequal-segment triṁśāṁśa and luminaries-only horā, plus
+  vargottama flags), janma nakṣatra/pada, and the **Vimśottarī daśā** ladder to the
+  pratyantardaśā level — every position carrying its arcminute margin to the nearest
+  rāśi/nakṣatra boundary, and a Moon-chart mode for unknown birth times.
   Differentially validated against the Swiss Ephemeris (bodies < 0.3′, lagna < 0.05′).
 - **Guṇa milan (kuṇḍalī matching)** — the classical aṣṭakūṭa 36-point system
   (Muhūrta-Cintāmaṇi lineage) with the **full per-kūṭa breakdown, never a bare score**,
