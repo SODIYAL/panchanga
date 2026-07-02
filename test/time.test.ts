@@ -20,6 +20,7 @@ import { describe, it, expect } from "vitest";
 import {
   startOfLocalDayUTC,
   nextLocalDayStartUTC,
+  localCivilTimeToUTC,
   localDayString,
   riseSet,
   moonrise,
@@ -535,5 +536,63 @@ describe("sankrantiPunyaKala", () => {
       const win = sankrantiPunyaKala(AFTER_SUNSET_MOMENT, DELHI_SANKRANTI);
       expect(win!.end.toISOString().startsWith("2026-01-15")).toBe(true);
     });
+  });
+});
+
+describe("localCivilTimeToUTC (wall-clock → UTC)", () => {
+  it("plain cases: IST and a negative-offset zone", () => {
+    // 09:30 IST = 04:00 UTC.
+    expect(localCivilTimeToUTC(2026, 1, 23, 9, 30, "Asia/Kolkata").toISOString()).toBe(
+      "2026-01-23T04:00:00.000Z",
+    );
+    // 19:50 IST = 14:20 UTC.
+    expect(localCivilTimeToUTC(1998, 12, 3, 19, 50, "Asia/Kolkata").toISOString()).toBe(
+      "1998-12-03T14:20:00.000Z",
+    );
+    // 07:00 EST (winter, UTC-5) = 12:00 UTC.
+    expect(localCivilTimeToUTC(2021, 1, 14, 7, 0, "America/New_York").toISOString()).toBe(
+      "2021-01-14T12:00:00.000Z",
+    );
+  });
+
+  it("far-east zones (UTC+13/+14) keep the given calendar date", () => {
+    // REGRESSION: the previous noon-UTC-anchored construction resolved these
+    // to the NEXT local day (noon UTC is already past local midnight of D+1).
+    // Kiritimati is UTC+14: 12:00 local on Jun 15 = Jun 14 22:00 UTC.
+    expect(localCivilTimeToUTC(2000, 6, 15, 12, 0, "Pacific/Kiritimati").toISOString()).toBe(
+      "2000-06-14T22:00:00.000Z",
+    );
+    // Auckland in January is NZDT (UTC+13): 06:30 local = 17:30 UTC the day before.
+    expect(localCivilTimeToUTC(2000, 1, 15, 6, 30, "Pacific/Auckland").toISOString()).toBe(
+      "2000-01-14T17:30:00.000Z",
+    );
+  });
+
+  it("spring-forward day: offset measured at the instant, not at midnight", () => {
+    // REGRESSION: midnight-plus-minutes arithmetic made post-transition births
+    // an hour late. New York 2021-03-14: clocks jump 02:00 EST → 03:00 EDT;
+    // 07:00 EDT = 11:00 UTC (NOT 12:00).
+    expect(localCivilTimeToUTC(2021, 3, 14, 7, 0, "America/New_York").toISOString()).toBe(
+      "2021-03-14T11:00:00.000Z",
+    );
+    // Pre-transition time on the same day still converts with EST.
+    expect(localCivilTimeToUTC(2021, 3, 14, 1, 30, "America/New_York").toISOString()).toBe(
+      "2021-03-14T06:30:00.000Z",
+    );
+  });
+
+  it("DST edge conventions: gap shifts forward; ambiguity takes the first occurrence", () => {
+    // 02:30 does not exist on 2021-03-14 in New York → forward-shifted (03:30 EDT).
+    expect(localCivilTimeToUTC(2021, 3, 14, 2, 30, "America/New_York").toISOString()).toBe(
+      "2021-03-14T07:30:00.000Z",
+    );
+    // Fall-back 2021-11-07: 01:30 occurs twice (EDT then EST) → first (EDT).
+    expect(localCivilTimeToUTC(2021, 11, 7, 1, 30, "America/New_York").toISOString()).toBe(
+      "2021-11-07T05:30:00.000Z",
+    );
+    // A time after the repeated hour converts with the post-transition offset.
+    expect(localCivilTimeToUTC(2021, 11, 7, 7, 0, "America/New_York").toISOString()).toBe(
+      "2021-11-07T12:00:00.000Z",
+    );
   });
 });

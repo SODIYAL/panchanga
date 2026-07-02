@@ -17,7 +17,7 @@
  *  • Month-name spellings match LUNAR_MONTH_NAMES in elements.ts exactly.
  */
 
-import type { FestivalRule } from "./types.js";
+import type { FestivalRule, Observance, Paksha, Sampradaya } from "./types.js";
 import { newMoons, lunarMonth } from "./elements.js";
 
 /**
@@ -602,11 +602,21 @@ const ADHIKA_EKADASHI_NAMES = {
 /**
  * Generate all Ekadashi rules for `year`.
  *
- * Rule (§4b, Smārta householder):
+ * Rule (§4b, Smārta householder — the default):
  *   Observe the day on which Ekadashi prevails at sunrise (udaya-tithi).
  *   When two candidate days arise (Dashami-vedha), take the first — Smārta
- *   householders accept Dashami-vedha (the Vaishnava arunodaya/Dashami-vedha
- *   skip is NOT used here).
+ *   householders accept Dashami-vedha.
+ *
+ * Vaiṣṇava mode (`sampradaya: "vaishnava"`):
+ *   The fast day must be daśamī-FREE at aruṇodaya (the 4 ghaṭikās before
+ *   sunrise). If Daśamī is still live when aruṇodaya opens on the udaya day,
+ *   the day is viddhā and the fast shifts to the next civil day (the Dvādaśī
+ *   day — "Gauṇa Ekādaśī"). On a vṛddhi (Ekādaśī live at two consecutive
+ *   sunrises) Vaiṣṇavas take the LATER day. Encoded as precedence "second"
+ *   (later pervading day) + the `vedha` clause (aruṇodaya daśamī-vedha
+ *   shift). Rule ids are IDENTICAL across sampradāyas — the profile changes
+ *   the convention, not the observance's identity; `displayName` gains a
+ *   "Vaishnava " prefix and `rule.sampradaya` records the mode.
  *
  * Count (2026): 24 Ekadashis total.
  *   12 regular months × 2 pakshas = 24.
@@ -621,8 +631,21 @@ const ADHIKA_EKADASHI_NAMES = {
  *
  * Precedence "udaya" → Ekadashi present at sunrise (window start) wins.
  */
-export function ekadashiRules(year: number): FestivalRule[] {
+export function ekadashiRules(year: number, sampradaya: Sampradaya = "smarta"): FestivalRule[] {
   const rules: FestivalRule[] = [];
+  const vaishnava = sampradaya === "vaishnava";
+  const ekadashiObservance = (paksha: Paksha): Observance =>
+    vaishnava
+      ? {
+          kind: "tithi-pervades",
+          paksha,
+          tithi: 11,
+          window: "sunrise",
+          precedence: "second",
+          vedha: { by: "previous-tithi", at: "arunodaya", shift: "next-day" },
+        }
+      : { kind: "tithi-pervades", paksha, tithi: 11, window: "sunrise", precedence: "udaya" };
+  const ekadashiName = (n: string): string => (vaishnava ? `Vaishnava ${n}` : n);
 
   // 12 regular months, both pakshas.
   for (const month of PURNIMANTA_MONTHS) {
@@ -631,17 +654,12 @@ export function ekadashiRules(year: number): FestivalRule[] {
     // Shukla Ekadashi (tithi 11 of shukla paksha).
     rules.push({
       id: `ekadashi-${month.toLowerCase()}-shukla`,
-      displayName: names?.shukla ?? `${month} Shukla Ekadashi`,
+      displayName: ekadashiName(names?.shukla ?? `${month} Shukla Ekadashi`),
       month: { purnimanta: month },
       category: "lunar-tithi",
       extended: true,
-      observance: {
-        kind: "tithi-pervades",
-        paksha: "shukla",
-        tithi: 11,
-        window: "sunrise",
-        precedence: "udaya",
-      },
+      sampradaya,
+      observance: ekadashiObservance("shukla"),
     });
 
     // Krishna Ekadashi (tithi 11 of krishna paksha).
@@ -651,17 +669,12 @@ export function ekadashiRules(year: number): FestivalRule[] {
     // correctly via the pūrṇimānta label on the tithi midpoint.
     rules.push({
       id: `ekadashi-${month.toLowerCase()}-krishna`,
-      displayName: names?.krishna ?? `${month} Krishna Ekadashi`,
+      displayName: ekadashiName(names?.krishna ?? `${month} Krishna Ekadashi`),
       month: { purnimanta: month },
       category: "lunar-tithi",
       extended: true,
-      observance: {
-        kind: "tithi-pervades",
-        paksha: "krishna",
-        tithi: 11,
-        window: "sunrise",
-        precedence: "udaya",
-      },
+      sampradaya,
+      observance: ekadashiObservance("krishna"),
     });
   }
 
@@ -673,19 +686,21 @@ export function ekadashiRules(year: number): FestivalRule[] {
     const slug = monthSlug(adhika);
     rules.push({
       id: `ekadashi-${slug}-shukla`,
-      displayName: ADHIKA_EKADASHI_NAMES.shukla,
+      displayName: ekadashiName(ADHIKA_EKADASHI_NAMES.shukla),
       month: { purnimanta: adhika },
       category: "lunar-tithi",
       extended: true,
-      observance: { kind: "tithi-pervades", paksha: "shukla", tithi: 11, window: "sunrise", precedence: "udaya" },
+      sampradaya,
+      observance: ekadashiObservance("shukla"),
     });
     rules.push({
       id: `ekadashi-${slug}-krishna`,
-      displayName: ADHIKA_EKADASHI_NAMES.krishna,
+      displayName: ekadashiName(ADHIKA_EKADASHI_NAMES.krishna),
       month: { purnimanta: adhika },
       category: "lunar-tithi",
       extended: true,
-      observance: { kind: "tithi-pervades", paksha: "krishna", tithi: 11, window: "sunrise", precedence: "udaya" },
+      sampradaya,
+      observance: ekadashiObservance("krishna"),
     });
   }
   return rules;
@@ -1123,6 +1138,18 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
 // Public API — allRules(year)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Convention profile for `allRules`. */
+export interface RuleProfile {
+  /**
+   * Sampradāya. Default `"smarta"` (Drik Panchang's default listing). With
+   * `"vaishnava"`, the Ekādaśī rules follow the Vaiṣṇava nirṇaya (aruṇodaya
+   * daśamī-vedha → Gauṇa next-day shift; later day on vṛddhi) — same rule ids,
+   * "Vaishnava "-prefixed display names. All other rules are currently
+   * sampradāya-independent.
+   */
+  sampradaya?: Sampradaya;
+}
+
 /**
  * Assemble the complete rule set for `year`: core (§4) + extended (§4b).
  *
@@ -1136,10 +1163,10 @@ export function regionalFestivalRules(year: number): FestivalRule[] {
  * named festival and the Margashirsha Shukla Ekadashi as part of the full
  * Ekadashi calendar. No deduplication is applied; both are surfaced.
  */
-export function allRules(year: number): FestivalRule[] {
+export function allRules(year: number, profile: RuleProfile = {}): FestivalRule[] {
   return [
     ...CORE_RULES,
-    ...ekadashiRules(year),
+    ...ekadashiRules(year, profile.sampradaya ?? "smarta"),
     ...sankashtiRules(year),
     ...pradoshRules(year),
     ...masikShivaratriRules(year),

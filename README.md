@@ -9,7 +9,7 @@ astronomical first principles via
 [astronomy-engine](https://github.com/cosinekitty/astronomy). No lookup tables, no
 remote API.
 
-> **Status:** pre-1.0 (`0.1.0`), under active development. The grammar and public API
+> **Status:** pre-1.0 (`0.2.0`), under active development. The grammar and public API
 > may still change.
 
 ## Features
@@ -21,11 +21,24 @@ remote API.
   at sunrise, with its end-time) and the day's sun/moon instants into one record.
 - **Grahaṇa (eclipses)** — solar & lunar eclipse type, contact timings, local visibility,
   and sūtak windows (9h lunar / 12h solar) for any year and place.
-- **Astronomy primitives** — Lahiri ayanāṁśa (IAU 1976 precession), sidereal longitudes
-  and Sun rāśi, new moons, solar ingress (saṅkrānti).
+- **Astronomy primitives** — Lahiri ayanāṁśa (Swiss-Ephemeris-aligned: anchor at
+  J2000.0 + IAU 2006 precession, matching `SE_SIDM_LAHIRI` to <0.05″ over 1900–2200),
+  sidereal longitudes and Sun rāśi, new moons, solar ingress (saṅkrānti).
 - **Time & kāla windows** — timezone/DST-safe sunrise, sunset and moonrise, the muhūrta
   windows (pūrvāhna, madhyāhna, aparāhna, pradoṣa, niśīta, brahma-muhūrta, …), and the
   weekday day-part periods **Rāhu Kāla, Yamaganda, Gulika, and Abhijit**.
+- **Jyotiṣa (janma-kuṇḍalī)** — the nine grahas (sidereal, with mean **and** true
+  Rāhu/Ketu — mean is the Parāśara-era default), lagna with a **birth-time-uncertainty
+  window**, whole-sign bhāvas (BPHS), navāṁśa, janma nakṣatra/pada, and the full
+  **Vimśottarī daśā** ladder — every position carrying its arcminute margin to the
+  nearest rāśi/nakṣatra boundary, and a Moon-chart mode for unknown birth times.
+  Differentially validated against the Swiss Ephemeris (bodies < 0.3′, lagna < 0.05′).
+- **Guṇa milan (kuṇḍalī matching)** — the classical aṣṭakūṭa 36-point system
+  (Muhūrta-Cintāmaṇi lineage) with the **full per-kūṭa breakdown, never a bare score**,
+  nāḍī/bhakūṭa doṣa flags **with their classical parihāra (cancellation) checks**, and a
+  Mangal-doṣa comparison (all three reference points: lagna, Moon, Venus) when both
+  birth times are known. Unknown birth times degrade honestly (Moon-chart mode +
+  explicit warnings).
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
   pervasion-day selector that resolves ~195 observances to civil dates and **never
   silently drops**: every miss is explained in `diagnostics`. Selection conventions are
@@ -151,6 +164,8 @@ engine is deterministic, so responses cache hard at the edge).
 GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
 GET /api/festivals?year=2026&place=calgary            → the year's festival dates
 GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
+GET /api/kundali?dob=1996-08-15&tob=09:30&place=calgary → janma-kundali (birth chart)
+GET /api/guna-milan?groomDob=…&groomPlace=…&brideDob=…&bridePlace=… → 36-guna matching
 GET /api/calendar.ics?place=calgary                  → subscribable iCalendar feed
 GET /api/places?q=austin                             → search the supported cities
 GET /api                                              → usage + example places
@@ -160,6 +175,15 @@ The **`.ics` feed** is the zero-code path for end users: add the URL to Google/A
 Calendar once and the festivals appear (and stay current — the feed defaults to a rolling
 *current + next year* window). `?set=major` (default, the named festivals a temple shows),
 `?set=all` (every vrata too), or `?set=core` (the 24 §4 festivals).
+
+**Provenance & profile.** Every festival the API emits explains itself: each JSON entry
+carries a one-line `basis` (the rule that decided the date — tithi, kāla window,
+precedence, vedha/Bhadra clauses) and its `sampradaya`; add `detail=full` for the raw
+observance rule, the key `instants` (tithi start/end, window, ingress, …) and the
+engine's per-rule `notes`. Each `.ics` VEVENT carries a `DESCRIPTION` with the basis, the
+local-time tithi interval, and a verify-with-your-authority note. `sampradaya=vaishnava`
+(on `/api/festivals` and `/api/calendar.ics?set=all`) switches the Ekādaśī convention to
+the Vaiṣṇava nirṇaya (aruṇodaya daśamī-vedha / Gauṇa shift).
 
 **Location** is a `place` slug or explicit `lat`, `lng` & `tz`. Every **US & Canada city
 of ≥10,000 people (~4,800 places)** is a slug — `calgary-ab`, `austin-tx`, `jersey-city-nj`
@@ -258,10 +282,19 @@ use.
 ## Development
 
 ```sh
-npm install      # install dependencies
-npm test         # vitest run — unit suites + Drik-Panchang conformance
-npm run build    # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
+npm install              # install dependencies
+npm test                 # vitest run — unit suites + Drik-Panchang conformance
+npm run build            # tsc → dist/ (ESM .js + .d.ts + source/declaration maps)
+npm run audit:ephemeris  # differential audit vs the Swiss Ephemeris → EPHEMERIS_AUDIT.md
 ```
+
+The **ephemeris audit** measures every aṅga boundary and replays every festival-date
+decision (2024–2032 × 4 cities) against the Swiss Ephemeris (see
+[`EPHEMERIS_AUDIT.md`](EPHEMERIS_AUDIT.md)): tithi boundaries agree within 45 s,
+saṅkrānti instants within 40 s (the Lahiri realization is calibrated to Swiss
+`SE_SIDM_LAHIRI`, pinned by Drik's 2031 London Makar Saṅkrānti — `KNOWN_ISSUES.md` R6),
+and only 2 of ~6,700 festival decisions are ephemeris-sensitive — both razor-edge
+window-fraction ties.
 
 Tests live in `test/` (~370 cases): per-module unit suites plus the Drik-Panchang
 conformance checks — `conformance.test.ts` (2026 New Delhi) and **five Calgary suites**
@@ -285,9 +318,13 @@ ones to be aware of:
   `purnima-snana-*` is the next-morning *snāna-dāna* day Drik lists as "X Purnima". At
   far-western longitudes these are usually one civil day apart — both are correct, for
   different observances.
-- **Gauṇa (Vaiṣṇava) Ekādaśī — not yet emitted.** When an Ekādaśī is Daśamī-viddha,
-  Vaiṣṇavas fast the next day ("Gauṇa"). The engine emits only the Smārta date; the
-  second-day reckoning is future work.
+- **Gauṇa (Vaiṣṇava) Ekādaśī — emitted via the sampradāya profile.** When an Ekādaśī is
+  Daśamī-viddha at aruṇodaya, Vaiṣṇavas fast the next day ("Gauṇa"). The default (Smārta)
+  listing keeps the udaya day; `allRules(year, { sampradaya: "vaishnava" })` (or
+  `ekadashiRules(year, "vaishnava")`) applies the Vaiṣṇava nirṇaya — aruṇodaya
+  daśamī-vedha next-day shift, later day on vṛddhi — with the same rule ids and
+  "Vaishnava "-prefixed names. Two 2026 divergences (Yogini Jul 10→11, Prabodhini
+  Nov 20→21 at New Delhi) are pinned against published Vaiṣṇava listings.
 - **Ganga Dussehra, Balram Jayanti — definitional, follow HSNA.** Ganga Dussehra uses the
   adhika Jyeṣṭha when present (matching Drik); Balram Jayanti follows HSNA's Kṛṣṇa-Ṣaṣṭhī
   rather than Drik's Śukla-Ṣaṣṭhī.

@@ -1,4 +1,4 @@
-export const PANCHANGA_VERSION = "0.1.0" as const;
+export const PANCHANGA_VERSION = "0.2.0" as const;
 
 export {
   ayanamsha,
@@ -13,6 +13,7 @@ export {
   localDayString,
   startOfLocalDayUTC,
   nextLocalDayStartUTC,
+  localCivilTimeToUTC,
   validateLocation,
   riseSet,
   moonrise,
@@ -92,11 +93,48 @@ export {
   type DayMuhurtas,
 } from "./panchanga.js";
 
+// ── Jyotiṣa: grahas, kuṇḍalī, daśā ──────────────────────────────────────────
+export {
+  GRAHA_NAMES,
+  RASHI_NAMES,
+  grahaLongitude,
+  grahaPosition,
+  grahaPositions,
+  meanNodeSidereal,
+  trueNodeSidereal,
+  janmaFacts,
+  type Graha,
+  type GrahaOptions,
+  type GrahaPosition,
+  type JanmaFacts,
+} from "./grahas.js";
+export {
+  tropicalAscendant,
+  siderealLagna,
+  lagnaWindow,
+  navamsaRashi,
+  kundali,
+  moonKundali,
+  type Kundali,
+  type KundaliGraha,
+  type LagnaWindow,
+} from "./kundali.js";
+export {
+  VIMSHOTTARI_SEQUENCE,
+  VIMSHOTTARI_TOTAL_YEARS,
+  nakshatraLord,
+  vimshottariDasha,
+  type DashaPeriod,
+} from "./dashas.js";
+export { gunaMilan, type GunaMilanResult, type KootaScore } from "./kootas.js";
+export { mangalDosha, kalaSarpa, type MangalDosha, type KalaSarpa } from "./doshas.js";
+
 // ── Observance-rule grammar (the keystone) ──────────────────────────────────
 export type {
   Kala,
   TithiRef,
   Paksha,
+  Sampradaya,
   Observance,
   FestivalRule,
   FestivalResult,
@@ -129,4 +167,5 @@ export {
   regionalFestivalRules,
   CHHATH_RULE,
   allRules,
+  type RuleProfile,
 } from "./rules.js";

@@ -1,0 +1,157 @@
+/**
+ * test/api-kundali.test.ts — the /api/kundali endpoint. Like api.test.ts,
+ * requires `npm run build` first (imports the bundled api-engine).
+ */
+import { describe, it, expect } from "vitest";
+import { handle, type Query } from "../api/_lib.js";
+
+const NOW = { today: "2026-06-25", year: 2026 };
+const call = (q: Query = {}) => handle("/api/kundali", q, NOW);
+
+describe("api /kundali", () => {
+  it("returns a full chart for dob+tob+place", () => {
+    const r = call({ dob: "2026-01-23", tob: "09:30", place: "new-delhi" });
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.input.timeUnknown).toBe(false);
+    expect(b.kundali.lagna.rashiName).toBe("Kumbha"); // 09:30 IST New Delhi
+    expect(b.kundali.lagna.window.enteredAt).toBeTruthy();
+    expect(b.kundali.grahas).toHaveLength(9);
+    expect(b.kundali.janma.janmaNakshatraName).toBe("Purva Bhadrapada");
+    expect(b.kundali.dasha).toHaveLength(9);
+    expect(b.kundali.dasha[0].lord).toBe("Jupiter");
+    expect(b.kundali.node).toBe("mean");
+    expect(b.kundali.ayanamsha).toBeGreaterThan(24);
+    expect(r.cacheSeconds).toBe(31_536_000);
+  });
+
+  it("unknown birth time → Moon-chart mode with an explicit note", () => {
+    const r = call({ dob: "2026-01-23", place: "new-delhi" });
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.input.timeUnknown).toBe(true);
+    expect(b.kundali.timeUnknown).toBe(true);
+    expect(b.kundali.lagna).toBeUndefined();
+    expect(b.note).toContain("Moon-chart");
+    expect(b.kundali.grahas.find((g: any) => g.graha === "Moon").bhava).toBe(1);
+  });
+
+  it("node=true switches the Rāhu model", () => {
+    const mean = (call({ dob: "2026-01-23", tob: "09:30", place: "new-delhi" }).body as any)
+      .kundali.grahas.find((g: any) => g.graha === "Rahu");
+    const tru = (call({ dob: "2026-01-23", tob: "09:30", place: "new-delhi", node: "true" }).body as any)
+      .kundali.grahas.find((g: any) => g.graha === "Rahu");
+    expect(mean.longitude).not.toBeCloseTo(tru.longitude, 4);
+  });
+
+  it("REGRESSION: far-east zones (UTC+13/+14) chart the given birth date, not the next day", () => {
+    // The old noon-UTC-anchored construction resolved the birth to dob+1 in
+    // any zone ahead of UTC+12 (noon UTC is already past local midnight of
+    // the next day there) — a whole-day error: the Moon moves ~13°/day.
+    const r = call({ dob: "2000-06-15", tob: "12:00", lat: "1.87", lng: "-157.4", tz: "Pacific/Kiritimati" });
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    // 12:00 local in UTC+14 = 22:00 UTC the previous civil day.
+    expect(new Date(b.kundali.birth).toISOString()).toBe("2000-06-14T22:00:00.000Z");
+  });
+
+  it("REGRESSION: spring-forward day births use the post-transition offset", () => {
+    // New York 2021-03-14 (02:00 EST → 03:00 EDT): 07:00 EDT = 11:00 UTC.
+    // The old midnight-plus-minutes arithmetic produced 12:00 UTC (08:00
+    // local) — an hour late, ~15° of lagna.
+    const r = call({ dob: "2021-03-14", tob: "07:00", place: "new-york" });
+    expect(r.status).toBe(200);
+    expect(new Date((r.body as any).kundali.birth).toISOString()).toBe("2021-03-14T11:00:00.000Z");
+  });
+
+  it("validates inputs: bad dob / tob / node / polar latitude", () => {
+    expect(call({ dob: "23-01-2026", place: "new-delhi" }).status).toBe(400);
+    expect(call({ dob: "2026-01-23", tob: "9:30am", place: "new-delhi" }).status).toBe(400);
+    expect(call({ dob: "2026-01-23", node: "osculating", place: "new-delhi" }).status).toBe(400);
+    const polar = call({ dob: "2026-01-23", tob: "09:30", lat: "70", lng: "20", tz: "Europe/Oslo" });
+    expect(polar.status).toBe(400);
+    expect((polar.body as any).error).toContain("lagna");
+  });
+});
+
+describe("api /guna-milan", () => {
+  const base = {
+    groomDob: "1996-08-15", groomTob: "09:15", groomPlace: "new-delhi",
+    brideDob: "1998-12-03", brideTob: "19:50", bridePlace: "mumbai",
+  };
+
+  it("returns the full breakdown + manglik comparison when both times known", () => {
+    const r = handle("/api/guna-milan", base, NOW);
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.gunaMilan.kootas).toHaveLength(8);
+    expect(b.gunaMilan.total).toBeGreaterThanOrEqual(0);
+    expect(b.gunaMilan.total).toBeLessThanOrEqual(36);
+    expect(b.gunaMilan.disclaimer).toBeTruthy();
+    expect(b.manglik).not.toBeNull();
+    expect(b.manglik.groom.fromLagna).not.toBeNull();
+    expect(b.warnings).toHaveLength(0);
+  });
+
+  it("unknown birth time → warning, no manglik lagna reference", () => {
+    const { brideTob, ...rest } = base;
+    const r = handle("/api/guna-milan", rest, NOW);
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.warnings.some((w: string) => w.includes("bride"))).toBe(true);
+    expect(b.manglik).toBeNull(); // needs both lagnas
+  });
+
+  it("validates per-party inputs", () => {
+    expect(handle("/api/guna-milan", { ...base, brideDob: "bad" }, NOW).status).toBe(400);
+    const { groomPlace, ...noLoc } = base;
+    expect(handle("/api/guna-milan", noLoc, NOW).status).toBe(400);
+  });
+});
+
+describe("api hardening", () => {
+  it("every routed endpoint has a matching Vercel adapter file (api/<route>.ts)", async () => {
+    // The core routes by path segment, but Vercel only serves api/<name>.ts
+    // files — a route without its adapter 404s in production while passing
+    // every handle()-level test. This guard makes that impossible to ship.
+    const { readdirSync } = await import("node:fs");
+    const adapters = new Set(readdirSync("api").filter((f) => f.endsWith(".ts") && !f.startsWith("_")).map((f) => f.replace(/\.ts$/, "")));
+    for (const route of ["panchanga", "festivals", "eclipses", "kundali", "guna-milan", "calendar", "places", "index"]) {
+      expect(adapters.has(route), `missing api/${route}.ts adapter`).toBe(true);
+    }
+  });
+
+  it("birth time on a DST spring-forward day resolves to the correct wall clock", () => {
+    // 2026-03-08, America/Denver springs forward at 02:00 → 03:00. A naive
+    // midnight+minutes conversion lands 09:30 births one hour off (15° of lagna).
+    const r = call({ dob: "2026-03-08", tob: "09:30", lat: "39.74", lng: "-104.99", tz: "America/Denver" });
+    expect(r.status).toBe(200);
+    const birth = new Date((r.body as any).kundali.birth);
+    const shown = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(birth);
+    expect(shown).toBe("09:30");
+  });
+
+  it("birth time on a fall-back day also resolves correctly", () => {
+    const r = call({ dob: "2026-11-01", tob: "09:30", lat: "39.74", lng: "-104.99", tz: "America/Denver" });
+    const birth = new Date((r.body as any).kundali.birth);
+    const shown = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(birth);
+    expect(shown).toBe("09:30");
+  });
+
+  it("rejects impossible calendar dates instead of silently rolling over", () => {
+    const r = call({ dob: "2026-02-30", tob: "09:30", place: "new-delhi" });
+    expect(r.status).toBe(400);
+    expect((r.body as any).error).toContain("not a real calendar date");
+  });
+
+  it("rejects birth years outside the validated 1900–2200 envelope", () => {
+    expect(call({ dob: "1850-05-01", place: "new-delhi" }).status).toBe(400);
+    expect(call({ dob: "2250-05-01", place: "new-delhi" }).status).toBe(400);
+  });
+
+  it("guna-milan location errors say which party is wrong", () => {
+    const r = handle("/api/guna-milan", { groomDob: "1996-08-15", groomPlace: "new-delhi", brideDob: "1998-12-03" }, NOW);
+    expect(r.status).toBe(400);
+    expect((r.body as any).error).toContain("bride");
+  });
+});

@@ -18,7 +18,7 @@
 // astronomy-engine inlined, so the Vercel ESM lambda never resolves
 // astronomy-engine's CommonJS build (whose `Body` enum defeats Node's named-
 // export detection). Types come from the real library declarations.
-import type { GeoLocation, FestivalRule } from "../dist/index.js";
+import type { GeoLocation, FestivalRule, FestivalResult, Sampradaya } from "../dist/index.js";
 import {
   dailyPanchanga,
   computeFestivals,
@@ -29,6 +29,12 @@ import {
   CHHATH_RULE,
   lunarEclipses,
   solarEclipses,
+  kundali,
+  moonKundali,
+  localCivilTimeToUTC,
+  janmaFacts,
+  gunaMilan,
+  mangalDosha,
 } from "../api-engine/index.js";
 import { PLACES } from "./places.generated.js";
 
@@ -178,9 +184,15 @@ const USAGE = {
   description: "Drik Panchanga (Smārta, pūrṇimānta) — tithi, nakṣatra, festivals & eclipses.",
   endpoints: {
     "GET /api/panchanga": "?date=YYYY-MM-DD (default today) & (place=<slug> | lat&lng&tz)",
-    "GET /api/festivals": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
+    "GET /api/festivals":
+      "?year=YYYY (default current) & (place=<slug> | lat&lng&tz) & sampradaya=smarta|vaishnava (Ekādaśī convention, default smarta) & detail=full (adds instants, rule, notes)",
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
-    "GET /api/calendar.ics": "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) — subscribable iCalendar feed",
+    "GET /api/kundali":
+      "?dob=YYYY-MM-DD & tob=HH:MM (local birth time; omit if unknown → Moon-chart) & (place=<slug> | lat&lng&tz) & node=mean|true (Rahu/Ketu model, default mean) — janma-kundali: grahas, lagna+window, bhavas, navamsa, Vimshottari dasha",
+    "GET /api/guna-milan":
+      "?groomDob=YYYY-MM-DD & groomTob=HH:MM (optional) & (groomPlace | groomLat&groomLng&groomTz) & brideDob & brideTob & (bridePlace | …) — ashtakoota (36-guna) matching with the per-koota breakdown, dosha/parihara evaluation, and (when both birth times are given) the Mangal-dosha comparison",
+    "GET /api/calendar.ics":
+      "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
     "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
   },
   places: ["calgary", "new-delhi", "toronto", "vancouver", "edmonton", "new-york", "mumbai", "london"],
@@ -191,10 +203,120 @@ const USAGE = {
 
 /** Which festivals an ICS feed carries. Default = the named festivals a temple
  *  calendar shows; "all" adds the twice-monthly recurring vratas; "core" = §4. */
-function rulesForSet(set: string, year: number): FestivalRule[] {
-  if (set === "all") return allRules(year);
+function rulesForSet(set: string, year: number, sampradaya: Sampradaya): FestivalRule[] {
+  if (set === "all") return allRules(year, { sampradaya });
   if (set === "core") return CORE_RULES;
   return [...CORE_RULES, ...oneOffFestivalRules(year), ...regionalFestivalRules(year), CHHATH_RULE];
+}
+
+/**
+ * Resolve a birth (dob, optional tob) in `tz` to a UTC instant, strictly:
+ * dob must be a REAL calendar date (no silent Feb-30 → Mar-2 rollover) within
+ * the engine's validated 1900–2200 envelope; tob must be 24h HH:MM. The
+ * wall-clock → UTC conversion is DST-correct (`localCivilTimeToUTC`), so a
+ * birth on a spring-forward/fall-back day resolves to the right instant.
+ */
+function resolveBirth(
+  dob: string | undefined,
+  tob: string | undefined,
+  tz: string,
+  label: string,
+): { birth: Date; timeKnown: boolean } {
+  if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    throw new ApiError(400, `invalid or missing ${label} "${dob ?? ""}"; expected YYYY-MM-DD (local birth date).`);
+  }
+  const [y, m, d] = dob.split("-").map(Number);
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() + 1 !== m || check.getUTCDate() !== d) {
+    throw new ApiError(400, `${label} "${dob}" is not a real calendar date.`);
+  }
+  if (y < 1900 || y > 2200) {
+    throw new ApiError(400, `${label} year ${y} is outside the validated 1900–2200 range.`);
+  }
+  if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
+    throw new ApiError(400, `invalid ${label.replace("Dob", "Tob").replace("dob", "tob")} "${tob}"; expected HH:MM (24h), or omit if unknown.`);
+  }
+  const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
+  return { birth: localCivilTimeToUTC(y, m, d, hh, mm, tz), timeKnown: tob !== undefined };
+}
+
+/** Parse `?sampradaya=` (Ekādaśī convention). Default Smārta. */
+function resolveSampradaya(q: Query): Sampradaya {
+  const raw = (first(q, "sampradaya") ?? "smarta").toLowerCase();
+  if (raw !== "smarta" && raw !== "vaishnava") {
+    throw new ApiError(400, `invalid sampradaya "${raw}"; expected "smarta" or "vaishnava".`);
+  }
+  return raw;
+}
+
+// ── Provenance ──────────────────────────────────────────────────────────────
+// Every date the API emits can explain itself: `basis` is a one-line
+// human-readable digest of the rule that decided it; `detail=full` adds the
+// raw observance, the key instants, and the engine's per-rule notes.
+
+const RASHI_NAMES = [
+  "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
+  "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena",
+] as const;
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+const tithiWord = (t: number | string): string => (typeof t === "string" ? t : `tithi ${t}`);
+
+/** One-line human-readable statement of how a rule resolves its date. */
+function describeObservance(rule: FestivalRule): string {
+  const o = rule.observance;
+  // Month prefix ("Kartika ") — empty (not a stray leading space) for the
+  // rules that carry no month label.
+  const m = rule.month?.purnimanta ? `${rule.month.purnimanta} ` : "";
+  switch (o.kind) {
+    case "tithi-pervades": {
+      const parts = [
+        `${m}${o.paksha} ${tithiWord(o.tithi)} pervading the ${o.window} window (precedence: ${o.precedence})`,
+      ];
+      if (o.nakshatra) parts.push(`${o.nakshatra.name} nakshatra (${o.nakshatra.mode})`);
+      if (o.avoidKarana === "vishti") parts.push("Bhadra (Vishti) excluded");
+      if (o.vedha) parts.push(`previous-tithi vedha at ${o.vedha.at} shifts to the next day`);
+      if (o.adhika === "prefer-adhika") parts.push("prefers the adhika lunation");
+      return parts.join("; ");
+    }
+    case "solar-ingress":
+      return `Sun's sidereal ingress into ${RASHI_NAMES[o.rashi] ?? `rashi ${o.rashi}`}`;
+    case "moonrise":
+      return `${m}${o.paksha} ${tithiWord(o.tithi)} live at moonrise`;
+    case "solar-arghya":
+      return `${m}${o.paksha} ${tithiWord(o.tithi)}: sunset arghya + next-sunrise arghya`;
+    case "derived":
+      return `${Math.abs(o.offsetDays)} day(s) ${o.offsetDays >= 0 ? "after" : "before"} ${o.from}`;
+    case "nakshatra-pervades":
+      return `${o.nakshatra} nakshatra at sunrise with the Sun in ${RASHI_NAMES[o.solarRashi] ?? `rashi ${o.solarRashi}`}`;
+    case "weekday-relative":
+      return `latest ${WEEKDAY_NAMES[o.weekday] ?? `weekday ${o.weekday}`} before ${o.from}`;
+  }
+}
+
+/** "Nov 20, 07:16" in the location's own timezone. */
+function fmtLocal(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
+}
+
+/** Multi-line provenance text for an ICS VEVENT description. */
+function eventDescription(rule: FestivalRule, r: FestivalResult, tz: string): string {
+  const parts = [describeObservance(rule)];
+  if (r.instants.tithiStart && r.instants.tithiEnd) {
+    parts.push(`Tithi: ${fmtLocal(r.instants.tithiStart, tz)} – ${fmtLocal(r.instants.tithiEnd, tz)} (${tz})`);
+  } else if (r.instants.ingress) {
+    parts.push(`Ingress: ${fmtLocal(r.instants.ingress, tz)} (${tz})`);
+  }
+  if (r.instants.moonrise) parts.push(`Moonrise: ${fmtLocal(r.instants.moonrise, tz)} (${tz})`);
+  parts.push("Computed astronomically (drik) — verify with your local authority before ritual use.");
+  return parts.join("\n");
 }
 
 const nextDay = (date: string): string => {
@@ -221,7 +343,10 @@ function fold(line: string): string {
 }
 
 /** Build an iCalendar document of all-day festival events. */
-function buildIcs(calName: string, events: { id: string; name: string; date: string }[]): string {
+function buildIcs(
+  calName: string,
+  events: { id: string; name: string; date: string; description?: string }[],
+): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -241,6 +366,7 @@ function buildIcs(calName: string, events: { id: string; name: string; date: str
       `DTSTART;VALUE=DATE:${d}`,
       `DTEND;VALUE=DATE:${nextDay(e.date).replace(/-/g, "")}`,
       `SUMMARY:${icsEscape(e.name)}`,
+      ...(e.description ? [`DESCRIPTION:${icsEscape(e.description)}`] : []),
       "TRANSP:TRANSPARENT",
       "END:VEVENT",
     );
@@ -266,13 +392,133 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "festivals": {
         const loc = resolveLocation(query);
         const year = resolveYear(query, now.year);
-        const names = new Map(allRules(year).map((r) => [r.id, r.displayName]));
-        const { results, diagnostics } = computeFestivals(year, loc, { rules: allRules(year) });
+        const sampradaya = resolveSampradaya(query);
+        const full = (first(query, "detail") ?? "").toLowerCase() === "full";
+        const rules = allRules(year, { sampradaya });
+        const ruleById = new Map(rules.map((r) => [r.id, r]));
+        const { results, diagnostics } = computeFestivals(year, loc, { rules });
         const festivals = results
           .filter((r) => r.date)
-          .map((r) => ({ id: r.id, name: names.get(r.id) ?? r.id, date: r.date, month: r.monthLabel.purnimanta }))
+          .map((r) => {
+            const rule = ruleById.get(r.id);
+            return {
+              id: r.id,
+              name: rule?.displayName ?? r.id,
+              date: r.date,
+              month: r.monthLabel.purnimanta,
+              sampradaya: rule?.sampradaya ?? "smarta",
+              basis: rule ? describeObservance(rule) : "",
+              ...(full
+                ? { instants: r.instants, rule: rule?.observance, notes: r.diagnostics }
+                : {}),
+            };
+          })
           .sort((a, b) => a.date.localeCompare(b.date));
-        return { status: 200, body: { year, location: loc, count: festivals.length, festivals, diagnostics }, cacheSeconds: 604_800 };
+        return {
+          status: 200,
+          body: { year, location: loc, sampradaya, count: festivals.length, festivals, diagnostics },
+          cacheSeconds: 604_800,
+        };
+      }
+      case "kundali": {
+        const loc = resolveLocation(query);
+        const dob = first(query, "dob");
+        const tob = first(query, "tob");
+        const nodeRaw = (first(query, "node") ?? "mean").toLowerCase();
+        if (nodeRaw !== "mean" && nodeRaw !== "true") {
+          throw new ApiError(400, `invalid node "${nodeRaw}"; expected "mean" (Parashara-era default) or "true".`);
+        }
+        const { birth, timeKnown } = resolveBirth(dob, tob, loc.timeZone, "dob");
+        try {
+          const chart = timeKnown
+            ? kundali(birth, loc, { node: nodeRaw })
+            : moonKundali(birth, loc, { node: nodeRaw });
+          return {
+            status: 200,
+            body: {
+              input: { dob, tob: tob ?? null, timeUnknown: !timeKnown, location: loc, node: nodeRaw },
+              kundali: chart,
+              note: !timeKnown
+                ? "birth time unknown: Moon-chart mode (bhavas from chandra lagna; no lagna-dependent outputs). Positions computed for local noon; the Moon moves ~13°/day, so janma nakshatra may be uncertain on nakshatra-transition days."
+                : undefined,
+            },
+            cacheSeconds: 31_536_000, // a birth chart is immutable
+          };
+        } catch (e) {
+          throw new ApiError(400, (e as Error).message); // e.g. polar-latitude lagna
+        }
+      }
+      case "guna-milan": {
+        // Per-party birth resolution: prefixed params re-routed through the
+        // same location/date machinery as everything else.
+        const party = (prefix: "groom" | "bride") => {
+          const sub: Query = {
+            place: first(query, `${prefix}Place`),
+            lat: first(query, `${prefix}Lat`),
+            lng: first(query, `${prefix}Lng`),
+            tz: first(query, `${prefix}Tz`),
+          };
+          let loc: ResolvedLocation;
+          try {
+            loc = resolveLocation(sub);
+          } catch (e) {
+            // Prefix the location error so the caller knows WHICH party's
+            // location is missing/wrong.
+            throw new ApiError(400, `${prefix}: ${(e as Error).message.replace("?place=", `?${prefix}Place=`)}`);
+          }
+          const { birth, timeKnown } = resolveBirth(
+            first(query, `${prefix}Dob`),
+            first(query, `${prefix}Tob`),
+            loc.timeZone,
+            `${prefix}Dob`,
+          );
+          return { loc, birth, timeKnown };
+        };
+        const groom = party("groom");
+        const bride = party("bride");
+        const gFacts = janmaFacts(groom.birth, groom.loc);
+        const bFacts = janmaFacts(bride.birth, bride.loc);
+        const milan = gunaMilan(gFacts, bFacts);
+
+        // Provenance: an unknown birth time makes the janma nakṣatra itself
+        // uncertain on Moon-transition days — surface, don't bury.
+        const warnings: string[] = [];
+        for (const [who, p, f] of [["groom", groom, gFacts], ["bride", bride, bFacts]] as const) {
+          if (!p.timeKnown) {
+            warnings.push(
+              `${who}: birth time unknown (noon assumed). Janma nakṣatra margin is ` +
+                `${f.moon.nakshatraMarginArcmin.toFixed(0)}′ — the Moon moves ~13°/day, so verify the ` +
+                `nakṣatra if the birth fell near a transition.`,
+            );
+          }
+        }
+
+        // Mangal-doṣa comparison only when BOTH lagnas are computable.
+        let manglik: unknown;
+        if (groom.timeKnown && bride.timeKnown) {
+          try {
+            const gk = kundali(groom.birth, groom.loc);
+            const bk = kundali(bride.birth, bride.loc);
+            const g = mangalDosha(gk.grahas, gk.lagna.rashi);
+            const b = mangalDosha(bk.grahas, bk.lagna.rashi);
+            manglik = {
+              groom: g,
+              bride: b,
+              note:
+                g.present === b.present
+                  ? "both parties have the same Mangal-doṣa status (a classical mutual-cancellation consideration)"
+                  : "Mangal-doṣa status differs between the parties; consult a jyotiṣī on the parihāras",
+            };
+          } catch {
+            /* polar lagna etc. — omit the manglik section rather than fail the match */
+          }
+        }
+
+        return {
+          status: 200,
+          body: { gunaMilan: milan, manglik: manglik ?? null, warnings },
+          cacheSeconds: 31_536_000,
+        };
       }
       case "eclipses": {
         const loc = resolveLocation(query);
@@ -286,20 +532,27 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "calendar": {
         const loc = resolveLocation(query);
         const set = (first(query, "set") ?? "major").toLowerCase();
+        const sampradaya = resolveSampradaya(query);
         // A single year if pinned, else a rolling current+next year so a
         // subscriber always has upcoming festivals without re-subscribing.
         const years = first(query, "year") ? [resolveYear(query, now.year)] : [now.year, now.year + 1];
         const seen = new Set<string>();
-        const events: { id: string; name: string; date: string }[] = [];
+        const events: { id: string; name: string; date: string; description?: string }[] = [];
         for (const y of years) {
-          const rules = rulesForSet(set, y);
-          const names = new Map(rules.map((r) => [r.id, r.displayName]));
+          const rules = rulesForSet(set, y, sampradaya);
+          const ruleById = new Map(rules.map((r) => [r.id, r]));
           for (const r of computeFestivals(y, loc, { rules }).results) {
             if (!r.date) continue;
             const uid = `${r.id}-${r.date}`;
             if (seen.has(uid)) continue;
             seen.add(uid);
-            events.push({ id: r.id, name: names.get(r.id) ?? r.id, date: r.date });
+            const rule = ruleById.get(r.id);
+            events.push({
+              id: r.id,
+              name: rule?.displayName ?? r.id,
+              date: r.date,
+              description: rule ? eventDescription(rule, r, loc.timeZone) : undefined,
+            });
           }
         }
         events.sort((a, b) => a.date.localeCompare(b.date));

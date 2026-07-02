@@ -794,6 +794,29 @@ function resolveTithiPervades(
     diagnostics.push(`fallback applied: ${sel.fallbackApplied}`);
   }
 
+  // Vedha (contamination) clause — the Vaiṣṇava Ekādaśī rule. The previous
+  // tithi is live at some moment of the `at` window on the chosen day exactly
+  // when the festival tithi BEGINS after that window opens (the window is
+  // pre-sunrise; the festival tithi runs through the day, so its start is the
+  // previous tithi's end). Viddhā → observe the next civil day instead.
+  if (obs.vedha && chosenDay) {
+    const vWin = kalaWindow(obs.vedha.at, chosenDay, loc);
+    if (vWin) {
+      instants.vedhaWindowStart = iso(vWin.start);
+      instants.vedhaWindowEnd = iso(vWin.end);
+      if (interval.start.getTime() > vWin.start.getTime()) {
+        diagnostics.push(
+          `vedha(${obs.vedha.by} @ ${obs.vedha.at}): previous tithi was live when the ` +
+            `${obs.vedha.at} window opened — viddhā; observance shifted to the next civil day`,
+        );
+        chosenDay = nextLocalDayStartUTC(chosenDay, loc.timeZone);
+        instants.vedhaShift = "next-day";
+      }
+    } else {
+      diagnostics.push(`vedha: "${obs.vedha.at}" window unavailable on the chosen day (polar?); vedha not applied`);
+    }
+  }
+
   if (chosenDay) {
     const win = kalaWindow(obs.window, chosenDay, loc);
     if (win) {

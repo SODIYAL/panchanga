@@ -6,7 +6,9 @@ it found are already fixed (see git history). This file is the residue.
 
 **Project decisions (set the target for everything below):**
 
-- **Sampradāya:** **Smārta** (Drik Panchang default). No Vaiṣṇava / ISKCON mode.
+- **Sampradāya:** **Smārta** (Drik Panchang default). A **Vaiṣṇava Ekādaśī profile**
+  exists (`allRules(year, { sampradaya: "vaishnava" })` — aruṇodaya daśamī-vedha /
+  Gauṇa shift); all other rules are currently sampradāya-independent.
 - **Authority of record:** **Drik Panchang** — every changed date is validated
   against Drik.
 
@@ -66,16 +68,37 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 - **Path to fix.** Source the kṣaya redistribution convention, consume the
   `kshaya` flag in the generators, and add a kṣaya-year regression test.
 
+
 ---
 
 ## Resolved
+
+### R6. Lahiri realization recalibrated to Swiss-Ephemeris/Drik *(was O4)*
+
+The differential ephemeris audit found the engine's Lahiri (anchor 23.853222° +
+IAU 1976 precession) sat a near-constant **−13.93″** (at J2000, +0.306″/century
+drift) from the Swiss Ephemeris' `SE_SIDM_LAHIRI`, shifting every saṅkrānti
+instant ~5.6 min early and flipping ingress-near-midnight dates. **Decisive
+datum:** Drik Panchang lists 2031 London Makar Saṅkrānti on **Jan 15**
+(user-verified 2026-07-02) — the Swiss side. Recalibrated `src/ayanamsha.ts` to
+anchor **23.8570923°** (Swiss `SE_SIDM_LAHIRI` at J2000.0) + the **IAU 2006
+(P03)** precession series; the realization now matches Swiss to < 0.05″ over
+1900–2200 and saṅkrānti instants to < 40 s. All 444 pre-existing tests
+(including every Drik conformance pin) pass unchanged; the 2031
+London/Sydney saṅkrānti dates are pinned in `test/multiyear-regression.test.ts`.
+Post-calibration, only two ephemeris-sensitive dates remain in the 2024–2032 ×
+4-city sweep, both razor-edge lunar ties needing the authority of record, not a
+better ephemeris (see `EPHEMERIS_AUDIT.md`).
 
 ### R1. Ekādaśī *vṛddhi* — daśamī-vedha *(decision: keep Smārta)*
 
 Decided **Smārta**: on an Ekādaśī live at two consecutive sunrises the engine
 keeps the **earlier** udaya day (accepting daśamī-vedha, the Smārta householder
-convention). The stricter Vaiṣṇava "later day" rule is out of scope. Matches
-Drik's Smārta listing for 2026. No change.
+convention). Matches Drik's Smārta listing for 2026. No change to the default.
+*(Update: the stricter Vaiṣṇava reckoning is now available as an opt-in profile —
+`ekadashiRules(year, "vaishnava")` / `allRules(year, { sampradaya: "vaishnava" })` —
+implemented as `precedence: "second"` + the `vedha` grammar clause; see
+`test/vaishnava-ekadashi.test.ts`.)*
 
 ### R2. Pradoṣa window length *(confirmed correct)*
 
