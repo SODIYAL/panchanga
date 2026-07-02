@@ -33,6 +33,12 @@ remote API.
   **Vimśottarī daśā** ladder — every position carrying its arcminute margin to the
   nearest rāśi/nakṣatra boundary, and a Moon-chart mode for unknown birth times.
   Differentially validated against the Swiss Ephemeris (bodies < 0.3′, lagna < 0.05′).
+- **Guṇa milan (kuṇḍalī matching)** — the classical aṣṭakūṭa 36-point system
+  (Muhūrta-Cintāmaṇi lineage) with the **full per-kūṭa breakdown, never a bare score**,
+  nāḍī/bhakūṭa doṣa flags **with their classical parihāra (cancellation) checks**, and a
+  Mangal-doṣa comparison (all three reference points: lagna, Moon, Venus) when both
+  birth times are known. Unknown birth times degrade honestly (Moon-chart mode +
+  explicit warnings).
 - **Festival engine** — a compact rule grammar (`Observance`) and a **pure, testable**
   pervasion-day selector that resolves ~195 observances to civil dates and **never
   silently drops**: every miss is explained in `diagnostics`. Selection conventions are
@@ -159,6 +165,7 @@ GET /api/panchanga?date=YYYY-MM-DD&place=calgary      → the day's pañcāṅga
 GET /api/festivals?year=2026&place=calgary            → the year's festival dates
 GET /api/eclipses?year=2026&place=calgary             → grahaṇas (eclipses)
 GET /api/kundali?dob=1996-08-15&tob=09:30&place=calgary → janma-kundali (birth chart)
+GET /api/guna-milan?groomDob=…&groomPlace=…&brideDob=…&bridePlace=… → 36-guna matching
 GET /api/calendar.ics?place=calgary                  → subscribable iCalendar feed
 GET /api/places?q=austin                             → search the supported cities
 GET /api                                              → usage + example places

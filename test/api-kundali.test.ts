@@ -53,3 +53,38 @@ describe("api /kundali", () => {
     expect((polar.body as any).error).toContain("lagna");
   });
 });
+
+describe("api /guna-milan", () => {
+  const base = {
+    groomDob: "1996-08-15", groomTob: "09:15", groomPlace: "new-delhi",
+    brideDob: "1998-12-03", brideTob: "19:50", bridePlace: "mumbai",
+  };
+
+  it("returns the full breakdown + manglik comparison when both times known", () => {
+    const r = handle("/api/guna-milan", base, NOW);
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.gunaMilan.kootas).toHaveLength(8);
+    expect(b.gunaMilan.total).toBeGreaterThanOrEqual(0);
+    expect(b.gunaMilan.total).toBeLessThanOrEqual(36);
+    expect(b.gunaMilan.disclaimer).toBeTruthy();
+    expect(b.manglik).not.toBeNull();
+    expect(b.manglik.groom.fromLagna).not.toBeNull();
+    expect(b.warnings).toHaveLength(0);
+  });
+
+  it("unknown birth time → warning, no manglik lagna reference", () => {
+    const { brideTob, ...rest } = base;
+    const r = handle("/api/guna-milan", rest, NOW);
+    expect(r.status).toBe(200);
+    const b = r.body as any;
+    expect(b.warnings.some((w: string) => w.includes("bride"))).toBe(true);
+    expect(b.manglik).toBeNull(); // needs both lagnas
+  });
+
+  it("validates per-party inputs", () => {
+    expect(handle("/api/guna-milan", { ...base, brideDob: "bad" }, NOW).status).toBe(400);
+    const { groomPlace, ...noLoc } = base;
+    expect(handle("/api/guna-milan", noLoc, NOW).status).toBe(400);
+  });
+});

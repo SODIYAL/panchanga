@@ -32,6 +32,9 @@ import {
   kundali,
   moonKundali,
   startOfLocalDayUTC,
+  janmaFacts,
+  gunaMilan,
+  mangalDosha,
 } from "../api-engine/index.js";
 import { PLACES } from "./places.generated.js";
 
@@ -186,6 +189,8 @@ const USAGE = {
     "GET /api/eclipses": "?year=YYYY (default current) & (place=<slug> | lat&lng&tz)",
     "GET /api/kundali":
       "?dob=YYYY-MM-DD & tob=HH:MM (local birth time; omit if unknown → Moon-chart) & (place=<slug> | lat&lng&tz) & node=mean|true (Rahu/Ketu model, default mean) — janma-kundali: grahas, lagna+window, bhavas, navamsa, Vimshottari dasha",
+    "GET /api/guna-milan":
+      "?groomDob=YYYY-MM-DD & groomTob=HH:MM (optional) & (groomPlace | groomLat&groomLng&groomTz) & brideDob & brideTob & (bridePlace | …) — ashtakoota (36-guna) matching with the per-koota breakdown, dosha/parihara evaluation, and (when both birth times are given) the Mangal-dosha comparison",
     "GET /api/calendar.ics":
       "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
     "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
@@ -418,6 +423,76 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         } catch (e) {
           throw new ApiError(400, (e as Error).message); // e.g. polar-latitude lagna
         }
+      }
+      case "guna-milan": {
+        // Per-party birth resolution: prefixed params re-routed through the
+        // same location/date machinery as everything else.
+        const party = (prefix: "groom" | "bride") => {
+          const sub: Query = {
+            place: first(query, `${prefix}Place`),
+            lat: first(query, `${prefix}Lat`),
+            lng: first(query, `${prefix}Lng`),
+            tz: first(query, `${prefix}Tz`),
+          };
+          const loc = resolveLocation(sub);
+          const dob = first(query, `${prefix}Dob`);
+          if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+            throw new ApiError(400, `invalid or missing ${prefix}Dob; expected YYYY-MM-DD.`);
+          }
+          const tob = first(query, `${prefix}Tob`);
+          if (tob !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tob)) {
+            throw new ApiError(400, `invalid ${prefix}Tob "${tob}"; expected HH:MM, or omit if unknown.`);
+          }
+          const midnight = startOfLocalDayUTC(new Date(`${dob}T12:00:00Z`), loc.timeZone);
+          const [hh, mm] = (tob ?? "12:00").split(":").map(Number);
+          const birth = new Date(midnight.getTime() + (hh * 60 + mm) * 60_000);
+          return { loc, birth, timeKnown: tob !== undefined };
+        };
+        const groom = party("groom");
+        const bride = party("bride");
+        const gFacts = janmaFacts(groom.birth, groom.loc);
+        const bFacts = janmaFacts(bride.birth, bride.loc);
+        const milan = gunaMilan(gFacts, bFacts);
+
+        // Provenance: an unknown birth time makes the janma nakṣatra itself
+        // uncertain on Moon-transition days — surface, don't bury.
+        const warnings: string[] = [];
+        for (const [who, p, f] of [["groom", groom, gFacts], ["bride", bride, bFacts]] as const) {
+          if (!p.timeKnown) {
+            warnings.push(
+              `${who}: birth time unknown (noon assumed). Janma nakṣatra margin is ` +
+                `${f.moon.nakshatraMarginArcmin.toFixed(0)}′ — the Moon moves ~13°/day, so verify the ` +
+                `nakṣatra if the birth fell near a transition.`,
+            );
+          }
+        }
+
+        // Mangal-doṣa comparison only when BOTH lagnas are computable.
+        let manglik: unknown;
+        if (groom.timeKnown && bride.timeKnown) {
+          try {
+            const gk = kundali(groom.birth, groom.loc);
+            const bk = kundali(bride.birth, bride.loc);
+            const g = mangalDosha(gk.grahas, gk.lagna.rashi);
+            const b = mangalDosha(bk.grahas, bk.lagna.rashi);
+            manglik = {
+              groom: g,
+              bride: b,
+              note:
+                g.present === b.present
+                  ? "both parties have the same Mangal-doṣa status (a classical mutual-cancellation consideration)"
+                  : "Mangal-doṣa status differs between the parties; consult a jyotiṣī on the parihāras",
+            };
+          } catch {
+            /* polar lagna etc. — omit the manglik section rather than fail the match */
+          }
+        }
+
+        return {
+          status: 200,
+          body: { gunaMilan: milan, manglik: manglik ?? null, warnings },
+          cacheSeconds: 31_536_000,
+        };
       }
       case "eclipses": {
         const loc = resolveLocation(query);

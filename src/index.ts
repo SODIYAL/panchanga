@@ -125,6 +125,8 @@ export {
   vimshottariDasha,
   type DashaPeriod,
 } from "./dashas.js";
+export { gunaMilan, type GunaMilanResult, type KootaScore } from "./kootas.js";
+export { mangalDosha, kalaSarpa, type MangalDosha, type KalaSarpa } from "./doshas.js";
 
 // ── Observance-rule grammar (the keystone) ──────────────────────────────────
 export type {
