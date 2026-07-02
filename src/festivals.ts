@@ -105,6 +105,16 @@ export interface PervasionCandidate {
    * kāla window is Bhadra-free. `undefined` when not supplied.
    */
   tithiAtSunrise?: boolean;
+  /**
+   * When this day's window is WHOLLY Bhadra-covered: does the covering Bhadra
+   * end before this day's local MIDNIGHT? The classical day-retention rule
+   * (Nirṇaya-Sindhu / Dharma-Sindhu; Drik-conformant — 2024 Holika Mar 24 &
+   * 2025 Mar 13 retain, 2026 Mar 3 shifts): a Bhadra that clears before
+   * midnight keeps the observance on ITS OWN night (performed after Bhadra /
+   * in Pucchā); only a Bhadra running past midnight pushes the day. Supplied
+   * by the resolver (the pure selector has no timezone context).
+   */
+  bhadraClearsByMidnight?: boolean;
 }
 
 export type Precedence = "max-window-fraction" | "udaya" | "first" | "second";
@@ -269,6 +279,30 @@ export function selectDayByPervasion(
     const disqualifiedPervaded = bhadraDisqualified.some(
       (c) => windowFraction(c.tithiInterval, c.window) > 0,
     );
+    // DAY RETENTION (classical, Drik-conformant): when the natural pervading
+    // day's window is wholly Bhadra-covered but the Bhadra CLEARS BEFORE that
+    // day's midnight, the observance stays on its own night — performed after
+    // Bhadra ends (or in Pucchā) — and the day does NOT shift. Verified:
+    // Holika Dahan 2024 (Bhadra ends 23:14 → Mar 24) and 2025 (23:28 →
+    // Mar 13) retain; 2026 (Bhadra to 05:29 next morning) shifts to Mar 3.
+    if (opts.avoidKarana === "vishti") {
+      const retained = bhadraDisqualified.find(
+        (c) => windowFraction(c.tithiInterval, c.window) > 0 && c.bhadraClearsByMidnight === true,
+      );
+      if (retained) {
+        diagnostics.push(
+          "avoidKarana(vishti): window wholly Bhadra-covered but Bhadra clears before midnight — " +
+            "day RETAINED (observe after Bhadra ends / in Bhadra Pucchā; see bhadra* instants)",
+        );
+        return {
+          chosen: retained,
+          coverageFraction: windowFraction(retained.tithiInterval, retained.window),
+          fallbackApplied: null,
+          bhadraOverlap: retained.bhadraOverlap ?? null,
+          diagnostics,
+        };
+      }
+    }
     if (opts.avoidKarana === "vishti" && disqualifiedPervaded && pool.length > 0) {
       // Prefer a Bhadra-free candidate that is the udaya-tithi day; else the
       // earliest Bhadra-free candidate (day-sorted).
@@ -729,15 +763,18 @@ function resolveTithiPervades(
     let bhadra: { start: Date; end: Date } | null | undefined;
     let bhadraFreeWindow: boolean | undefined;
     let tithiAtSunrise: boolean | undefined;
+    let bhadraClearsByMidnight: boolean | undefined;
     if (obs.avoidKarana === "vishti") {
       bhadra = null;
       const winLen = win.end.getTime() - win.start.getTime();
       let coveredMs = 0;
+      let lastOverlapEndMs = -Infinity;
       for (const bi of bhadraSet ?? []) {
         const ov = overlapMs(bi, { start: win.start, end: win.end });
         if (ov > 0) {
           if (!bhadra) bhadra = { start: bi.start, end: bi.end };
           coveredMs += ov;
+          lastOverlapEndMs = Math.max(lastOverlapEndMs, bi.end.getTime());
         }
       }
       // Bhadra-free iff a meaningful slice of the window is uncovered. Allow a
@@ -746,6 +783,18 @@ function resolveTithiPervades(
       // threshold negative and misclassify a Bhadra-FREE day as wholly covered.
       const slack = Math.min(1000, winLen / 2);
       bhadraFreeWindow = coveredMs < winLen - slack;
+      // Day-retention fact: when wholly covered, does the covering Bhadra end
+      // before the rule's retention DEADLINE — local midnight (night rites,
+      // default) or pradoṣa end (day rites like Rakhi)? The pure selector
+      // consumes the boolean; the deadline semantics live here.
+      if (!bhadraFreeWindow && Number.isFinite(lastOverlapEndMs)) {
+        const midnight = nextLocalDayStartUTC(dayMidnight, loc.timeZone);
+        const deadline =
+          obs.bhadraDeadline === "pradosha-end"
+            ? (pradosha(dayMidnight, loc)?.end ?? midnight)
+            : midnight;
+        bhadraClearsByMidnight = lastOverlapEndMs <= deadline.getTime();
+      }
       // Udaya fact: is the festival tithi live at this day's sunrise? Used to
       // pick the Bhadra-free observance day when the tithi has left the window.
       const sr = riseSet("rise", dayMidnight, loc);
@@ -759,6 +808,7 @@ function resolveTithiPervades(
       bhadraOverlap: bhadra,
       bhadraFreeWindow,
       tithiAtSunrise,
+      bhadraClearsByMidnight,
     });
   }
 

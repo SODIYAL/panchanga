@@ -267,14 +267,15 @@ describe("rules 2026 — adhika Jyeshtha Ekadashi (Padmini + Parama)", () => {
    * portion of the tithi — July 10 — matching Drik / published Yogini Ekadashi
    * 2026 (Fri July 10). A dropped Ekādaśī was never a correct outcome.
    */
-  it("Ashadha Krishna Ekadashi (Yogini, kṣaya) resolves to 2026-07-10 via nearest-window", () => {
+  // NOTE (dṛk elongation calibration): the tithi now starts ~08:16:49 IST —
+  // ELEVEN SECONDS before the Jul 10 sunrise window closes (08:17:00) — so it
+  // wins by pervasion; pre-calibration it missed by seconds and won via the
+  // nearest-window fallback. Either mechanism must land July 10 (Drik /
+  // published Yogini Ekadashi 2026): the DATE is the contract, not the path.
+  it("Ashadha Krishna Ekadashi (Yogini, razor-edge) resolves to 2026-07-10, never dropped", () => {
     const r = ekResult("ekadashi-ashadha-krishna");
     expect(r, "ekadashi-ashadha-krishna result must exist (never-silent-drop)").toBeDefined();
     expect(r!.date).toBe("2026-07-10");
-    expect(
-      r!.diagnostics.some((d) => d.includes("nearest-window")),
-      "kṣaya Ekādaśī must record the nearest-window fallback in its diagnostics",
-    ).toBe(true);
   });
 });
 

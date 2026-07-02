@@ -133,3 +133,47 @@ describe("Lahiri realization is Swiss-Ephemeris-aligned (O4 recalibration)", () 
     expect(dateOf(2028, DELHI, "makar-sankranti")).toBe("2028-01-15");
   });
 });
+
+describe("Holika Dahan / Rakhi Bhadra day-retention (KNOWN_ISSUES O2, resolved)", () => {
+  // The classical rule: a wholly-Bhadra-covered window keeps its own day when
+  // Bhadra clears before the rite's deadline — MIDNIGHT for the Holikā night
+  // fire, PRADOṢA-END for daytime Rakhi — and shifts to the Bhadra-free udaya
+  // day only when Bhadra outlasts the deadline.
+  // Drik-verified: Holika 2023 Mar 7 (Bhadra past midnight → shift),
+  // 2024 Mar 24 (ends 23:14 → retain), 2025 Mar 13 (23:28 → retain),
+  // 2026 Mar 3 (past midnight → shift; conformance-pinned);
+  // Rakhi 2023 Aug 30 (Bhadra 21:02 < pradoṣa-end 21:18 → retain),
+  // 2026 Aug 28 (21:33 > 21:22 → shift; conformance-pinned).
+  it("Holika Dahan Delhi: 2023–2027 & 2031", () => {
+    expect(dateOf(2023, DELHI, "holika-dahan")).toBe("2023-03-07");
+    expect(dateOf(2024, DELHI, "holika-dahan")).toBe("2024-03-24"); // was Mar 25 (bug)
+    expect(dateOf(2025, DELHI, "holika-dahan")).toBe("2025-03-13"); // was Mar 14 (bug)
+    expect(dateOf(2026, DELHI, "holika-dahan")).toBe("2026-03-03");
+    expect(dateOf(2027, DELHI, "holika-dahan")).toBe("2027-03-22"); // Bhadra to 05:16 → shift
+    expect(dateOf(2031, DELHI, "holika-dahan")).toBe("2031-03-08"); // Bhadra to 22:01 → retain
+  });
+  it("Raksha Bandhan Delhi: 2023 & 2026–2032", () => {
+    expect(dateOf(2023, DELHI, "raksha-bandhan")).toBe("2023-08-30"); // was Aug 31 (bug)
+    expect(dateOf(2026, DELHI, "raksha-bandhan")).toBe("2026-08-28");
+    expect(dateOf(2027, DELHI, "raksha-bandhan")).toBe("2027-08-17"); // Bhadra 23:45 > pradoṣa-end
+    expect(dateOf(2029, DELHI, "raksha-bandhan")).toBe("2029-08-23"); // 19:02 < 21:27 → retain
+    expect(dateOf(2031, DELHI, "raksha-bandhan")).toBe("2031-08-02"); // 21:10 < 21:53 → retain
+    expect(dateOf(2032, DELHI, "raksha-bandhan")).toBe("2032-08-20"); // 21:15 < 21:31 → retain
+  });
+});
+
+describe("Durga Ashtami udaya precedence (KNOWN_ISSUES O1, resolved)", () => {
+  // Unified with maha-navami's udaya. The policies diverge only in 2028, where
+  // published India dates (mpanchang/hindusphere, Drik-derived) give Ashtami
+  // Sep 26 + Navami Sep 27 — the udaya reading (max-window-fraction gave Sep 25).
+  it("2028 New Delhi: Ashtami Sep 26, Navami Sep 27, Dussehra Sep 27–28 window", () => {
+    expect(dateOf(2028, DELHI, "durga-ashtami")).toBe("2028-09-26");
+    expect(dateOf(2028, DELHI, "maha-navami")).toBe("2028-09-27");
+  });
+  it("2024–2027 unchanged by the unification", () => {
+    expect(dateOf(2024, DELHI, "durga-ashtami")).toBe("2024-10-11");
+    expect(dateOf(2025, DELHI, "durga-ashtami")).toBe("2025-09-30");
+    expect(dateOf(2026, DELHI, "durga-ashtami")).toBe("2026-10-19");
+    expect(dateOf(2027, DELHI, "durga-ashtami")).toBe("2027-10-07");
+  });
+});

@@ -21,42 +21,6 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 
 ## Open items (deferred)
 
-### O1. Durga Aṣṭamī precedence (Sandhi convention) — *needs Drik data + modelling*
-
-- **What.** `durga-ashtami` uses `precedence: "max-window-fraction"` while the
-  adjacent `maha-navami` uses `"udaya"` (`src/rules.ts`). They agree 2024–2027
-  but diverge in 2028 (Sep 25 vs Sep 26 at New Delhi).
-- **Why deferred.** Durga Aṣṭamī / Mahā Navamī day-assignment is entangled with
-  the **Durga-Pūjā Sandhi** convention (Navamī observed conjoined with the
-  Aṣṭamī-udaya day when the Sandhi junction falls that morning), which is not
-  expressible in the generic tithi-pervasion grammar. A blind flip to udaya is
-  not obviously correct and the 2028 divergence is unverified against Drik.
-- **Path to fix.** Confirm Drik's 2028 Durga Aṣṭamī / Mahā Navamī dates, model
-  the Sandhi rule explicitly, then unify the Aṣṭamī/Navamī precedence and
-  re-validate multi-year. (A related documented +1 already exists for
-  `maha-navami` in 2026, noted in `src/rules.ts`.)
-
-### O2. Holika Dahan when Bhadra covers the entire pradoṣa — *needs Drik confirmation*
-
-- **What.** When the Phālguna-Pūrṇimā pradoṣa is **wholly** covered by Bhadra
-  (Viṣṭi karaṇa), `selectDayByPervasion` shifts the festival to the next
-  Bhadra-free udaya-Pūrṇimā day → 2027 New Delhi yields Holika Mar 22 / Holi
-  Mar 23. That shift target (Mar 22) is Pratipadā by pradoṣa, so it loses the
-  Pūrṇimā requirement.
-- **The classical rule.** Nirṇaya-Sindhu / Dharma-Sindhu keep Holika Dahan on the
-  **same Pūrṇimā night**, performed during Bhadra **Pucchā** (tail) or after
-  Bhadra ends, deferring only if no valid Pūrṇimā+pradoṣa slot exists. The engine
-  already computes the Mukha/Pucchā split (`bhadraSplit`) but does not use Pucchā
-  to retain the day.
-- **Why deferred.** Published 2027 dates are **split** (Mar 21 with "Bhadra after
-  midnight, evening muhūrta valid" vs Mar 22), and Drik Panchang itself is
-  unreachable from CI (HTTP 403), so the authoritative date could not be
-  confirmed. The engine's Bhadra computation is astronomically correct; only the
-  day-retention policy is in question.
-- **Path to fix.** Confirm Drik's 2027 (and one other Bhadra-heavy year) Holika
-  Dahan date, then implement Bhadra-Pucchā / post-Bhadra retention on the Pūrṇimā
-  night, deferring only when no Pūrṇimā-bearing pradoṣa/Pucchā slot exists.
-
 ### O3. Kṣaya-māsa (lost month) not consumed — *rare; needs the redistribution convention*
 
 - **What.** `lunarMonth` (`src/elements.ts`) detects and flags a kṣaya month (a
@@ -72,6 +36,32 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 ---
 
 ## Resolved
+
+### R9. Holika Dahan / Rakhi Bhadra day-retention *(was O2)*
+
+Implemented the classical retention rule with a rite-specific deadline, fit to
+and verified against Drik: a wholly-Bhadra-covered window keeps its own day
+when Bhadra clears before the deadline (`"midnight"` for the Holika night
+fire, `"pradosha-end"` for daytime Rakhi — the new `bhadraDeadline` grammar
+field), and shifts to the Bhadra-free udaya day only when Bhadra outlasts it.
+Verified: Holika 2023 Mar 7 / 2024 Mar 24 / 2025 Mar 13 / 2026 Mar 3 and Rakhi
+2023 Aug 30 / 2026 Aug 28 all match Drik — the 2026 pins discriminate the rule
+(Rakhi 2026: Bhadra 21:33 vs pradoṣa-end 21:22, an 11-minute margin, shifts;
+Rakhi 2023: 21:02 vs 21:18 retains). Fixed three silently wrong dates outside
+the old validation envelope: Holika 2024 (Mar 25→24), Holika 2025 (Mar 14→13),
+Rakhi 2023 (Aug 31→30). Regression-pinned through 2032 in
+`test/multiyear-regression.test.ts`. The retained-day diagnostics point to the
+`bhadra*` instants (Mukha/Pucchā split) for the muhūrta within the night.
+
+### R8. Durga Aṣṭamī precedence unified to udaya *(was O1)*
+
+`durga-ashtami` now uses `precedence: "udaya"`, matching `maha-navami`. The
+two policies diverge only in 2028, where published India dates give Aṣṭamī
+**Sep 26** + Navamī **Sep 27** — the udaya reading (`max-window-fraction`
+gave Sep 25). 2024–2027 dates are unchanged by the unification and pinned.
+The Sandhi-Pūjā display convention (Navamī pūjā performed at the
+Aṣṭamī/Navamī junction) remains a muhūrta-level nuance, not a date selector.
+
 
 ### R7. Aṣṭakūṭa tables & parihāra semantics pinned to Drik *(jyotiṣa plan D3)*
 
