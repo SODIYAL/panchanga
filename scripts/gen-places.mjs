@@ -80,6 +80,12 @@ async function indiaAdmin1() {
       .trim();
     map[key.slice(3)] = IN_ABBR[clean] ?? slugify(clean); // fallback: full slugified name
   }
+  // Pre-2020 GeoNames admin1 codes: 06 (Dadra and Nagar Haveli) and 32 (Daman
+  // and Diu) no longer appear in today's admin1CodesASCII.txt now that both
+  // territories were merged into "Dadra and Nagar Haveli and Daman and Diu",
+  // but `all-the-cities` still tags some city records with the old codes.
+  map["06"] ??= "DH";
+  map["32"] ??= "DH";
   return map;
 }
 const IN_ADMIN = await indiaAdmin1();
@@ -156,5 +162,5 @@ ${rows}
 
 writeFileSync(OUT, out);
 console.error(
-  `Wrote ${picked.length} places (pop >= ${POP_MIN}, ${collisions} slug collisions suffixed) → ${OUT}`,
+  `Wrote ${picked.length} places (pop >= ${POP_MIN} US/CA, >= ${POP_MIN_IN} IN, ${collisions} slug collisions suffixed) → ${OUT}`,
 );

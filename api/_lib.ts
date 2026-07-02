@@ -83,6 +83,44 @@ function normalizeKey(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * `/api/places` search only: EXTRA_PLACES keeps hand rows (mumbai, new-delhi)
+ * reachable by bare slug for `?place=` compatibility, but the generated list
+ * can independently carry the same physical city (mumbai-mh, new-delhi-dl) —
+ * so a search for either would otherwise show the city twice. Collapse a pair
+ * when they share a normalized name AND sit within half a degree of lat/lng
+ * (same physical place), keeping the record with `population` defined (the
+ * richer generated row). Cities that merely share a name — London, UK vs.
+ * London, ON, ~9° apart — are left alone; `lookupPlace`/`?place=` is untouched.
+ */
+function dedupeSameCity(places: readonly Place[]): Place[] {
+  const byName = new Map<string, Place[]>();
+  for (const p of places) {
+    const key = normalizeKey(p.name);
+    const group = byName.get(key);
+    if (group) group.push(p);
+    else byName.set(key, [p]);
+  }
+  const drop = new Set<Place>();
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      if (drop.has(group[i])) continue;
+      for (let j = i + 1; j < group.length; j++) {
+        const b = group[j];
+        if (drop.has(b)) continue;
+        const a = group[i];
+        const samePlace = Math.abs(a.latitude - b.latitude) <= 0.5 && Math.abs(a.longitude - b.longitude) <= 0.5;
+        if (!samePlace) continue;
+        // Prefer whichever already has `population` (the generated row); if
+        // both/neither do, arbitrarily keep the first (stable, order-preserving).
+        drop.add(a.population === undefined && b.population !== undefined ? a : b);
+      }
+    }
+  }
+  return drop.size === 0 ? places.slice() : places.filter((p) => !drop.has(p));
+}
+
 const BY_SLUG = new Map<string, Place>(ALL_PLACES.map((p) => [p.slug, p]));
 // Bare city name → its most-populous bearer. PLACES is population-sorted, so the
 // first time a name is seen it is the largest (e.g. "vancouver" → Vancouver, BC).
@@ -588,14 +626,23 @@ export function handle(path: string, query: Query, now: { today: string; year: n
       case "places": {
         const q = (first(query, "q") ?? "").trim();
         const key = normalizeKey(q);
+        // Hyphen-collapsed form so a squashed query ("dehradun", "jerseycity")
+        // still matches a multi-word name/slug ("dehra-dun-ut", "jersey-city-nj").
+        const compactKey = key.replace(/-/g, "");
         const country = (first(query, "country") ?? "").toUpperCase();
         const rawLimit = Number(first(query, "limit"));
         const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 25;
-        const matches = ALL_PLACES.filter((p) => {
+        const filtered = ALL_PLACES.filter((p) => {
           if (country && p.country !== country) return false;
           if (!key) return true;
-          return p.slug.includes(key) || normalizeKey(p.name).includes(key);
+          return (
+            p.slug.includes(key) ||
+            normalizeKey(p.name).includes(key) ||
+            p.slug.replace(/-/g, "").includes(compactKey) ||
+            normalizeKey(p.name).replace(/-/g, "").includes(compactKey)
+          );
         });
+        const matches = dedupeSameCity(filtered);
         const places = matches.slice(0, limit).map((p) => ({
           slug: p.slug,
           name: p.name,
