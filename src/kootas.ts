@@ -175,10 +175,15 @@ export interface GunaMilanResult {
   total: number;
   maxTotal: 36;
   kootas: KootaScore[];
-  /** Doṣa flags with their classical parihāra (cancellation) evaluation. */
+  /**
+   * Doṣa flags with their classical parihāra evaluation. Semantics differ by
+   * doṣa (Drik-conformant): a CANCELLED nāḍī doṣa has its 8 points RESTORED
+   * in `kootas`; a MITIGATED bhakūṭa doṣa keeps its 0 — the friendly-lords
+   * rule is advisory context, not a score change.
+   */
   doshas: {
     nadi: { present: boolean; cancelled: boolean; note: string } | null;
-    bhakoota: { present: boolean; cancelled: boolean; note: string } | null;
+    bhakoota: { present: boolean; mitigated: boolean; note: string } | null;
   };
   groom: { nakshatra: string; pada: number; rashi: string };
   bride: { nakshatra: string; pada: number; rashi: string };
@@ -257,23 +262,34 @@ export function gunaMilan(groom: MilanParty, bride: MilanParty): GunaMilanResult
     koota: "Bhakoota", max: 7, scored: bhakoota,
     reason: `rāśi distances ${d1}/${d2} (${RASHI_NAMES[gRashi]} ↔ ${RASHI_NAMES[bRashi]})`,
   });
-  // Bhakūṭa parihāra: same lord, or mutually friendly lords.
-  const bhakootaCancelled =
+  // Bhakūṭa friendly-lords consideration: ADVISORY ONLY — it does NOT restore
+  // points. Drik-conformant: a 5-9 pair whose rāśi lords are mutual friends
+  // (Meṣa×Siṁha, Mars/Sun) still scores 0 and draws the "Bhakuta Dosha"
+  // verdict (test/drik-guna-milan.test.ts Run 1). Contrast nāḍī, where the
+  // parihāra restores the 8 points.
+  const bhakootaMitigated =
     bhakootaDosha && (gL === bL || (MAITRI[gL][bL] === "F" && MAITRI[bL][gL] === "F"));
 
-  // 8. Nāḍī — different nāḍī scores 8; same nāḍī is the gravest doṣa.
+  // 8. Nāḍī — different nāḍī scores 8; same nāḍī is the gravest doṣa, BUT a
+  // classical parihāra RESTORES the full 8 points (Drik-conformant: verified
+  // for same-nakṣatra-different-pada — Drik scores such a pair 8/8 and 36/36
+  // with no doṣa verdict; test/drik-guna-milan.test.ts Run 6). Parihāras:
+  // same nakṣatra different pada; same rāśi different nakṣatras; same
+  // nakṣatra different rāśis. The doṣa + parihāra remain reported below for
+  // transparency even though the points are restored.
   const gN = NADI_BY_NAKSHATRA[gNak];
   const bN = NADI_BY_NAKSHATRA[bNak];
   const nadiDosha = gN === bN;
-  const nadi = nadiDosha ? 0 : 8;
-  kootas.push({ koota: "Nadi", max: 8, scored: nadi, reason: `groom ${gN} vs bride ${bN}` });
-  // Nāḍī parihāra (classical): same nakṣatra but different pada; same rāśi
-  // with different nakṣatras; same nakṣatra in different rāśis.
   const nadiCancelled =
     nadiDosha &&
     ((gNak === bNak && groom.janmaPada !== bride.janmaPada) ||
       (gRashi === bRashi && gNak !== bNak) ||
       (gNak === bNak && gRashi !== bRashi));
+  const nadi = !nadiDosha || nadiCancelled ? 8 : 0;
+  kootas.push({
+    koota: "Nadi", max: 8, scored: nadi,
+    reason: `groom ${gN} vs bride ${bN}${nadiCancelled ? " (same nāḍī, but parihāra restores the points)" : ""}`,
+  });
 
   const total = kootas.reduce((s, k) => s + k.scored, 0);
   return {
@@ -286,16 +302,16 @@ export function gunaMilan(groom: MilanParty, bride: MilanParty): GunaMilanResult
             present: true,
             cancelled: nadiCancelled,
             note: nadiCancelled
-              ? "nāḍī doṣa present but cancelled by a classical parihāra (same-nakṣatra/pada or same-rāśi exception)"
+              ? "nāḍī doṣa cancelled by a classical parihāra (same-nakṣatra/pada or same-rāśi exception); the 8 points are restored"
               : "nāḍī doṣa (same nāḍī): the gravest aṣṭakūṭa doṣa; no parihāra applies here",
           }
         : null,
       bhakoota: bhakootaDosha
         ? {
             present: true,
-            cancelled: bhakootaCancelled,
-            note: bhakootaCancelled
-              ? "bhakūṭa doṣa present but cancelled: the rāśi lords are the same / mutual friends"
+            mitigated: bhakootaMitigated,
+            note: bhakootaMitigated
+              ? `bhakūṭa doṣa (${d1}/${d2}); the rāśi lords are the same / mutual friends — an advisory mitigation only (points remain 0)`
               : `bhakūṭa doṣa (${d1}/${d2})`,
           }
         : null,

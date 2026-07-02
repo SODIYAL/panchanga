@@ -28,10 +28,13 @@ describe("aṣṭakūṭa scorer — classical known values", () => {
     expect(r.doshas.nadi?.cancelled).toBe(false);
   });
 
-  it("same nakṣatra, different pada → nāḍī doṣa cancelled by parihāra", () => {
+  it("same nakṣatra, different pada → nāḍī parihāra restores the 8 points (36 total)", () => {
+    // Drik-conformant (drik-guna-milan Run 6): such a pair scores 36/36.
     const r = gunaMilan(party(3, 1), party(3, 3));
     expect(r.doshas.nadi?.present).toBe(true);
     expect(r.doshas.nadi?.cancelled).toBe(true);
+    expect(r.kootas.find((k) => k.koota === "Nadi")!.scored).toBe(8);
+    expect(r.total).toBe(36);
   });
 
   it("tārā: 3/5/7 counts score 0 per direction", () => {
@@ -59,20 +62,21 @@ describe("aṣṭakūṭa scorer — classical known values", () => {
     expect(strained.kootas.find((k) => k.koota === "Graha Maitri")!.scored).toBe(0.5);
   });
 
-  it("bhakūṭa: 6-8 rāśi distance is doṣa (0); parihāra when lords are friends", () => {
+  it("bhakūṭa: 6-8 rāśi distance is doṣa (0); friendly-lords mitigation is advisory only", () => {
     // Meṣa (Aśvinī) × Kanyā (Hasta): distances 6/8, lords Mars/Mercury not mutual friends.
     const dosha = gunaMilan(party(0, 1), party(12, 1));
     expect(dosha.kootas.find((k) => k.koota === "Bhakoota")!.scored).toBe(0);
     expect(dosha.doshas.bhakoota?.present).toBe(true);
-    expect(dosha.doshas.bhakoota?.cancelled).toBe(false);
-    // Karka (Puṣya) × Dhanu (Mūla): distances 6/8, lords Moon/Jupiter —
-    // Moon→Jup N, so not mutual friends either; use Meṣa×Vṛścika same-lord:
-    // distances 8/6, lords both Mars → cancelled.
-    const cancelled = gunaMilan(party(0, 1), party(16, 4)); // Aśvinī(Meṣa) × Anurādhā p4? → Vṛścika
-    expect(cancelled.groom.rashi).toBe("Mesha");
-    expect(cancelled.bride.rashi).toBe("Vrishchika");
-    expect(cancelled.doshas.bhakoota?.present).toBe(true);
-    expect(cancelled.doshas.bhakoota?.cancelled).toBe(true);
+    expect(dosha.doshas.bhakoota?.mitigated).toBe(false);
+    // Meṣa×Vṛścika: distances 8/6, lords both Mars → mitigated, but the
+    // points stay 0 (Drik-conformant: Run 1's Mars/Sun mutual friends still
+    // scored 0 with a Bhakuta-dosha verdict).
+    const mitigated = gunaMilan(party(0, 1), party(16, 4)); // Aśvinī(Meṣa) × Anurādhā p4 (Vṛścika)
+    expect(mitigated.groom.rashi).toBe("Mesha");
+    expect(mitigated.bride.rashi).toBe("Vrishchika");
+    expect(mitigated.doshas.bhakoota?.present).toBe(true);
+    expect(mitigated.doshas.bhakoota?.mitigated).toBe(true);
+    expect(mitigated.kootas.find((k) => k.koota === "Bhakoota")!.scored).toBe(0);
   });
 
   it("varṇa is directional: Brahmin bride with Kshatriya groom loses the point", () => {

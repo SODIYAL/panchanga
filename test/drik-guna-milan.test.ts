@@ -118,6 +118,24 @@ const RUNS: DrikRun[] = [
     kootas: { Varna: 1, Vashya: 1, Tara: 1.5, Yoni: 2, "Graha Maitri": 0.5, Gana: 6, Bhakoota: 7, Nadi: 0 },
     total: 19,
   },
+  {
+    // THE NĀḌĪ-PARIHĀRA RUN. Drik: Vara 2000-01-14 22:20 New Delhi
+    // (Aśvinī p1, 1.67°); Kanya 2000-01-15 09:55 New Delhi (Aśvinī p3,
+    // 8.31°). Same Ādi nāḍī — yet Drik scores Nadi 8/8, total 36/36,
+    // "Union is Excellent", NO doṣa verdict: the same-nakṣatra-different-
+    // pada parihāra RESTORES the points. (Contrast Run 1's bhakūṭa, where
+    // mutual-friend lords did NOT restore the 0 — the asymmetry both runs
+    // pin.) Our doshas.nadi block still reports present+cancelled for
+    // transparency; the scored points follow Drik.
+    name: "Run 6: Ashwini p1 × Ashwini p3 (nāḍī parihāra restores points → 36/36)",
+    query: {
+      groomDob: "2000-01-14", groomTob: "22:20", groomPlace: "new-delhi",
+      brideDob: "2000-01-15", brideTob: "09:55", bridePlace: "new-delhi",
+    },
+    janma: { groom: ["Ashwini", "Mesha"], bride: ["Ashwini", "Mesha"] },
+    kootas: { Varna: 1, Vashya: 2, Tara: 3, Yoni: 4, "Graha Maitri": 5, Gana: 6, Bhakoota: 7, Nadi: 8 },
+    total: 36,
+  },
 ];
 
 describe("Drik Panchang guna-milan conformance (per-kūṭa, transcribed fixtures)", () => {
