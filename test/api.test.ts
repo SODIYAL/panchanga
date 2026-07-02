@@ -84,7 +84,7 @@ describe("api /places (search)", () => {
 
   it("returns the most-populous cities when q is empty", () => {
     const body = call("/api/places", {}).body as any;
-    expect(body.places[0].slug).toBe("new-york-city-ny");
+    expect(body.places[0].slug).toBe("mumbai-mh");
   });
 });
 

@@ -40,8 +40,8 @@ import {
 import { PLACES } from "./places.generated.js";
 
 /** A resolvable named location. The bulk come from places.generated.ts (every
- *  US + Canada city ≥10k people); a handful of non-US/CA marquee cities are
- *  added below. */
+ *  US + Canada city ≥10k people, plus every India city/town ≥15k); a handful
+ *  of extra marquee cities are added below. */
 type Place = GeoLocation & {
   slug: string;
   name: string;
@@ -194,11 +194,11 @@ const USAGE = {
       "?groomDob=YYYY-MM-DD & groomTob=HH:MM (optional) & (groomPlace | groomLat&groomLng&groomTz) & brideDob & brideTob & (bridePlace | …) — ashtakoota (36-guna) matching with the per-koota breakdown, dosha/parihara evaluation, and (when both birth times are given) the Mangal-dosha comparison",
     "GET /api/calendar.ics":
       "?set=major|all|core (default major) & year=YYYY (default current+next) & (place | lat&lng&tz) & sampradaya=smarta|vaishnava — subscribable iCalendar feed",
-    "GET /api/places": "?q=<name> & country=US|CA & limit=N — search the supported cities",
+    "GET /api/places": "?q=<name> & country=US|CA|IN & limit=N — search the supported cities",
   },
   places: ["calgary", "new-delhi", "toronto", "vancouver", "edmonton", "new-york", "mumbai", "london"],
   placesCount: ALL_PLACES.length,
-  placeSearch: "every US & Canada city ≥10k people is a slug (e.g. austin-tx); discover them via GET /api/places?q=",
+  placeSearch: "every US & Canada city ≥10k people, and every India city/town ≥15k, is a slug (e.g. austin-tx, jaipur-rj); discover them via GET /api/places?q=",
   source: "https://github.com/SODIYAL/panchanga",
 };
 
@@ -592,7 +592,7 @@ export function handle(path: string, query: Query, now: { today: string; year: n
         const rawLimit = Number(first(query, "limit"));
         const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 25;
         const matches = ALL_PLACES.filter((p) => {
-          if ((country === "US" || country === "CA") && p.country !== country) return false;
+          if (country && p.country !== country) return false;
           if (!key) return true;
           return p.slug.includes(key) || normalizeKey(p.name).includes(key);
         });
