@@ -87,13 +87,13 @@ const YONI_ORDER: Yoni[] = [
  */
 const YONI_SCORE: number[][] = [
   // Ash Gaj Mes Sar Shw Mar Mus Gau Mah Vya Mri Van Nak Sim
-  [4, 2, 2, 3, 2, 2, 2, 3, 0, 1, 3, 3, 2, 1], // Ashwa
+  [4, 2, 2, 3, 2, 2, 3, 3, 0, 1, 3, 3, 2, 1], // Ashwa
   [2, 4, 3, 3, 2, 2, 2, 2, 3, 1, 2, 3, 2, 0], // Gaja
   [2, 3, 4, 2, 1, 2, 1, 3, 3, 1, 2, 0, 3, 1], // Mesha
   [3, 3, 2, 4, 2, 1, 1, 1, 1, 2, 2, 2, 0, 2], // Sarpa
   [2, 2, 1, 2, 4, 2, 1, 2, 2, 1, 0, 2, 1, 1], // Shwan
   [2, 2, 2, 1, 2, 4, 0, 2, 2, 1, 3, 3, 2, 1], // Marjara
-  [2, 2, 1, 1, 1, 0, 4, 2, 2, 2, 2, 2, 1, 2], // Mushaka
+  [3, 2, 1, 1, 1, 0, 4, 2, 2, 2, 2, 2, 1, 2], // Mushaka
   [3, 2, 3, 1, 2, 2, 2, 4, 3, 0, 3, 2, 2, 1], // Gau
   [0, 3, 3, 1, 2, 2, 2, 3, 4, 1, 2, 2, 2, 1], // Mahisha
   [1, 1, 1, 2, 1, 1, 2, 0, 1, 4, 1, 1, 2, 1], // Vyaghra
@@ -129,14 +129,16 @@ const GANA_BY_NAKSHATRA: Gana[] = [
   "Deva", "Rakshasa", "Rakshasa", "Manushya", "Manushya", "Deva",
 ];
 /**
- * Gaṇa score [groom][bride], Drik-compatible reading. VARIANT NOTE: some
- * sources give Manuṣya–Rākṣasa 2 and Deva–Rākṣasa 0; the end-to-end
- * conformance pins (test/kootas.test.ts) are the tie-breaker of record.
+ * Gaṇa score [groom][bride]. CONFORMANCE: Deva-groom × Rākṣasa-bride = 0 is
+ * pinned by Drik's own output (2000-01-14 22:20 × 2000-01-23 03:10 New Delhi,
+ * Aśvinī×Maghā → Gana 0; test/drik-guna-milan.test.ts). Remaining
+ * cross-gaṇa cells follow the same source's published table and are pinned
+ * as further fixtures land.
  */
 const GANA_ORDER: Gana[] = ["Deva", "Manushya", "Rakshasa"];
 const GANA_SCORE: number[][] = [
   //          Deva  Man  Rak   (bride →)
-  /* Deva */ [ 6,    6,   1 ],
+  /* Deva */ [ 6,    6,   0 ],
   /* Man  */ [ 5,    6,   0 ],
   /* Rak  */ [ 1,    0,   6 ],
 ];
