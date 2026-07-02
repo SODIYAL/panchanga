@@ -73,6 +73,28 @@ and Calgary (139 conformance assertions) and drops **zero** festivals across
 
 ## Resolved
 
+### R7. Aṣṭakūṭa tables & parihāra semantics pinned to Drik *(jyotiṣa plan D3)*
+
+Six-run end-to-end fixture campaign against Drik Panchang's Kundali Match
+(`test/drik-guna-milan.test.ts`; inputs engineered mid-pada so positions could
+not contaminate the table comparison — Drik's displayed Moons matched the
+engine in every run, including one real-birth pair). Four corrections found,
+all invisible to total-only checking:
+
+- **Yoni** Aśva×Mūṣaka 2→**3**, Gaja×Sarpa 3→**2** (Run 1's error even
+  *cancelled* against the gaṇa error in the total).
+- **Gaṇa** Deva-groom×Rākṣasa-bride 1→**0** (and Manuṣya×Rākṣasa = 0,
+  Rākṣasa×Deva = 1 confirmed — the published "2-point" variants are not Drik's).
+- **Nāḍī parihāra restores the 8 points** (same-nakṣatra-different-pada pair
+  scores 36/36 on Drik with no doṣa verdict), while the **bhakūṭa
+  friendly-lords rule is advisory only** (a mutual-friends 5-9 pair still
+  scores 0 with a Bhakūṭa-doṣa verdict) — the asymmetry is now encoded and
+  documented in the scorer.
+
+Also observed: Drik's tārā *labels* contradicted their own awarded points in
+three runs while our count arithmetic matched the points every time — points,
+not labels, are the conformance target.
+
 ### R6. Lahiri realization recalibrated to Swiss-Ephemeris/Drik *(was O4)*
 
 The differential ephemeris audit found the engine's Lahiri (anchor 23.853222° +
