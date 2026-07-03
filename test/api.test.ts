@@ -84,7 +84,60 @@ describe("api /places (search)", () => {
 
   it("returns the most-populous cities when q is empty", () => {
     const body = call("/api/places", {}).body as any;
-    expect(body.places[0].slug).toBe("new-york-city-ny");
+    expect(body.places[0].slug).toBe("mumbai-mh");
+  });
+
+  // EXTRA_PLACES keeps hand rows (mumbai, new-delhi) alive for ?place=
+  // compatibility, but the generated list now also carries the same physical
+  // cities (mumbai-mh, new-delhi-dl) — a search must collapse the pair.
+  it("de-dupes same-city results: ?q=mumbai returns exactly one Mumbai", () => {
+    const body = call("/api/places", { q: "mumbai" }).body as any;
+    const matches = body.places.filter((p: any) => p.name === "Mumbai");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].slug).toBe("mumbai-mh"); // the richer, populated generated row wins
+    expect(matches[0].population).toBeDefined();
+  });
+
+  it("de-dupes same-city results: ?q=new delhi returns exactly one New Delhi", () => {
+    const body = call("/api/places", { q: "new delhi" }).body as any;
+    const matches = body.places.filter((p: any) => p.name === "New Delhi");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].slug).toBe("new-delhi-dl");
+    expect(matches[0].population).toBeDefined();
+  });
+
+  it("does NOT de-dupe genuine homonyms: ?q=london still returns London, UK and London, ON", () => {
+    const body = call("/api/places", { q: "london" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "london")).toBe(true); // EXTRA_PLACES, London UK
+    expect(body.places.some((p: any) => p.slug === "london-on")).toBe(true); // ~9° away — different city
+  });
+
+  it("matches a hyphen-collapsed compact form: ?q=dehradun finds Dehra Dūn", () => {
+    // GeoNames spells it "Dehra Dūn" → slug "dehra-dun-ut"; a squashed query
+    // (no space/hyphen) must still hit it, the same way ?q=jerseycity should.
+    const body = call("/api/places", { q: "dehradun" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "dehra-dun-ut")).toBe(true);
+  });
+
+  it("does NOT de-dupe twin cities straddling a border: ?q=kansas city keeps MO and KS", () => {
+    // Both rows are generated (both populated) and sit within the 0.5° box —
+    // but they are genuinely distinct cities, not one city listed twice.
+    const body = call("/api/places", { q: "kansas city" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "kansas-city-mo")).toBe(true);
+    expect(body.places.some((p: any) => p.slug === "kansas-city-ks")).toBe(true);
+  });
+
+  it("compact matching stops at the name: ?q=nut must not leak across the name/state slug boundary", () => {
+    // Compacting the whole slug would glue name and state ("dehra-dun-ut" →
+    // "dehradunut"), making ?q=nut a false hit. Only the NAME is compacted.
+    const body = call("/api/places", { q: "nut", limit: "100" }).body as any;
+    expect(body.places.some((p: any) => p.slug === "dehra-dun-ut")).toBe(false);
+  });
+
+  it("country filter generalizes beyond US/CA: ?country=IN restricts results to India", () => {
+    const body = call("/api/places", { country: "IN", q: "a", limit: "50" }).body as any;
+    expect(body.places.length).toBeGreaterThan(0);
+    expect(body.places.every((p: any) => p.country === "IN")).toBe(true);
   });
 });
 
