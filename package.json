@@ -54,7 +54,7 @@
   "devDependencies": {
     "esbuild": "^0.28.1",
     "sweph": "^2.10.3-7",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   }
 }
