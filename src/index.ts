@@ -17,6 +17,7 @@ export {
   validateLocation,
   riseSet,
   moonrise,
+  moonset,
   sunset,
   varaAt,
   weekdayOfLocalDay,

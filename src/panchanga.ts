@@ -33,6 +33,7 @@ import {
   riseSet,
   sunset,
   moonrise,
+  moonset,
   dayMuhurtas,
   weekdayOfLocalDay,
   VARA_NAMES,
@@ -77,7 +78,13 @@ export interface DailyPanchanga {
   /** ISO-UTC sun/moon instants for the day; `null` at polar latitudes. */
   sunrise: string | null;
   sunset: string | null;
+  /**
+   * Moonrise / moonset within the CIVIL day. Each is independently `null` when
+   * no such event falls in the day — the Moon runs ~50 min late daily, so about
+   * one civil day per lunation carries a set without a rise, or the reverse.
+   */
   moonrise: string | null;
+  moonset: string | null;
   /** Vāra (weekday) of this civil day. */
   vara: { index: number; name: string };
   /** Tithi prevailing at sunrise. `number` is the absolute tithi 1..30. */
@@ -106,6 +113,7 @@ export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
   const sr = riseSet("rise", dayStart, loc);
   const ss = sunset(dayStart, loc);
   const mr = moonrise(dayStart, loc);
+  const ms = moonset(dayStart, loc);
 
   // Resolve every running aṅga at sunrise (udaya); fall back to local noon when
   // there is no sunrise so the day still produces a pañcāṅga.
@@ -128,6 +136,7 @@ export function dailyPanchanga(date: Date, loc: GeoLocation): DailyPanchanga {
     sunrise: sr ? sr.toISOString() : null,
     sunset: ss ? ss.toISOString() : null,
     moonrise: mr ? mr.toISOString() : null,
+    moonset: ms ? ms.toISOString() : null,
     vara: { index: varaIndex, name: VARA_NAMES[varaIndex] },
     tithi: {
       number: tb.number,
