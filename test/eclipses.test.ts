@@ -18,6 +18,13 @@ import type { GeoLocation } from "../src/types.js";
 const NEW_DELHI: GeoLocation = { latitude: 28.6139, longitude: 77.209, timeZone: "Asia/Kolkata" };
 const LOS_ANGELES: GeoLocation = { latitude: 34.05, longitude: -118.24, timeZone: "America/Los_Angeles" };
 const MADRID: GeoLocation = { latitude: 40.42, longitude: -3.7, timeZone: "Europe/Madrid" };
+const VALENCIA: GeoLocation = { latitude: 39.4699, longitude: -0.3763, timeZone: "Europe/Madrid" };
+const CALGARY: GeoLocation = {
+  latitude: 51.0447,
+  longitude: -114.0719,
+  elevationMeters: 1045,
+  timeZone: "America/Edmonton",
+};
 
 const day = (s: string) => s.slice(0, 10);
 const ms = (s: string) => new Date(s).getTime();
@@ -96,12 +103,53 @@ describe("solarEclipses(2026)", () => {
     expect(eclipses.every((e) => e.local === null && e.sutak === null)).toBe(true);
   });
 
-  it("is visible from Madrid (12 Aug total), with obscuration and 12h sūtak", () => {
+  it("is visible from Madrid (12 Aug), with obscuration and 12h sūtak", () => {
     const total = solarEclipses(2026, MADRID).find((e) => e.kind === "total")!;
     expect(total.visible).toBe(true);
     expect(total.local).not.toBeNull();
     expect(total.local!.obscuration).toBeGreaterThan(0.9);
     expect(ms(total.sutak!.start)).toBe(ms(total.local!.partialStart) - 12 * 3_600_000);
     expect(ms(total.sutak!.end)).toBe(ms(total.local!.partialEnd));
+  });
+
+  it("reports the 12 Aug total as only PARTIAL at Calgary, far outside the path of totality", () => {
+    // The path of totality runs over the Arctic, Greenland, Iceland and northern
+    // Spain. Calgary sees a 2%-obscuration graze, so the global `kind` ("total")
+    // must not be mistaken for the local circumstance: `local.kind` is what a
+    // calendar should render for an observer.
+    const e = solarEclipses(2026, CALGARY).find((x) => day(x.peak) === "2026-08-12")!;
+    expect(e.kind).toBe("total"); // global type, at greatest eclipse
+    expect(e.visible).toBe(true);
+    expect(e.local!.kind).toBe("partial"); // local type, as seen from Calgary
+    expect(e.local!.obscuration).toBeLessThan(0.05);
+  });
+
+  it("reports local.kind === 'total' inside the path of totality (Valencia)", () => {
+    const e = solarEclipses(2026, VALENCIA).find((x) => day(x.peak) === "2026-08-12")!;
+    expect(e.local!.kind).toBe("total");
+    expect(e.local!.obscuration).toBe(1);
+  });
+
+  it("reports local.kind === 'partial' for Madrid, just outside the southern path limit", () => {
+    // Madrid lies a few km south of the umbral path: 99.97% obscuration, but no
+    // totality. Obscuration alone can't be thresholded into a kind — the local
+    // kind has to come from the local search.
+    const e = solarEclipses(2026, MADRID).find((x) => day(x.peak) === "2026-08-12")!;
+    expect(e.local!.kind).toBe("partial");
+    expect(e.local!.obscuration).toBeGreaterThan(0.99);
+  });
+
+  it("reports local.kind === 'partial' for the 17 Feb annular seen from outside the antumbra", () => {
+    // The 17 Feb 2026 annular is annular only over Antarctica; Cape Town catches
+    // a ~5% partial. Global kind stays "annular"; the local kind must not.
+    const CAPE_TOWN: GeoLocation = {
+      latitude: -33.9249,
+      longitude: 18.4241,
+      timeZone: "Africa/Johannesburg",
+    };
+    const e = solarEclipses(2026, CAPE_TOWN).find((x) => day(x.peak) === "2026-02-17")!;
+    expect(e.kind).toBe("annular");
+    expect(e.visible).toBe(true);
+    expect(e.local!.kind).toBe("partial");
   });
 });
