@@ -22,3 +22,9 @@ api-engine/
 
 # Audit/analysis working files (harness scripts, workflow, findings notes)
 scratch/
+
+# Rashtriya Panchang source scans — a Government of India publication, not ours
+# to redistribute, and ~17 MB. It is only an INPUT to `npm run rp:parse`, which
+# writes the committed fixture (test/fixtures/rp-1948.json); supply your own copy
+# locally to regenerate. See scripts/rp-parse.mjs for usage.
+RP*.pdf
