@@ -12,6 +12,10 @@
  *  • Sūtak begins before first contact: 9 hours (3 prahara) for a Chandra
  *    Grahaṇa, 12 hours (4 prahara) for a Sūrya Grahaṇa, and runs to mokṣa (last
  *    contact). This is the widely-used Smārta convention.
+ *  • For a Sūrya Grahaṇa the eclipse TYPE is location-dependent: `kind` is the
+ *    global circumstance (at greatest eclipse, somewhere on Earth) and
+ *    `local.kind` is what is seen from `loc`. Present `local.kind` to a reader —
+ *    the 12 Aug 2026 eclipse is globally total, but only a 2% partial in Calgary.
  *
  * Timings are UTC instants. Lunar contact times are derived from the eclipse
  * peak and astronomy-engine's semi-durations (sd_*, in minutes).
@@ -62,11 +66,29 @@ export interface LunarEclipse {
 }
 
 export interface SolarEclipse {
-  kind: GrahanKind; // partial | annular | total
+  /**
+   * GLOBAL type of the eclipse (partial | annular | total) — the circumstance at
+   * the point of greatest eclipse, i.e. somewhere on Earth. This is NOT what an
+   * observer at `loc` sees: a total eclipse is total only along a narrow path,
+   * and merely partial everywhere else in its penumbra. To describe the eclipse
+   * for a place (a calendar entry, a UI label), use `local.kind`.
+   */
+  kind: GrahanKind;
   /** ISO-UTC instant of greatest eclipse (global). */
   peak: string;
-  /** Local circumstances at `loc` when the eclipse is seen there; else null. */
-  local: { partialStart: string; peak: string; partialEnd: string; obscuration: number } | null;
+  /**
+   * Local circumstances at `loc` when the eclipse is seen there; else null.
+   * `kind` here is the type as seen FROM `loc` (partial | annular | total) and
+   * may be narrower than the global `kind`; `obscuration` is the fraction of the
+   * Sun's disc area covered at local peak (0–1).
+   */
+  local: {
+    kind: GrahanKind;
+    partialStart: string;
+    peak: string;
+    partialEnd: string;
+    obscuration: number;
+  } | null;
   visible: boolean | null;
   /** Sūtak window (12h before local first contact → last contact); else null. */
   sutak: IsoWindow | null;
@@ -172,6 +194,10 @@ export function solarEclipses(year: number, loc?: GeoLocation): SolarEclipse[] {
         const partialStart = lse.partial_begin.time.date;
         const partialEnd = lse.partial_end!.time.date;
         local = {
+          // The type AT `loc`, which is narrower than the global kind for any
+          // observer outside the umbra/antumbra — a "total" eclipse is partial
+          // for most of the hemisphere that sees it at all.
+          kind: lse.kind as unknown as GrahanKind,
           partialStart: iso(partialStart),
           peak: iso(lse.peak.time.date),
           partialEnd: iso(partialEnd),

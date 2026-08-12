@@ -22,8 +22,9 @@ record) and to the **Swiss Ephemeris** is enforced in the test suite.
   pūrṇimānta / amānta lunar month with adhika (leap) and kṣaya (lost) month detection.
 - **Daily pañcāṅga** — `dailyPanchanga(date, loc)` bundles all five aṅgas (each resolved
   at sunrise, with its end-time) and the day's sun/moon instants into one record.
-- **Grahaṇa (eclipses)** — solar & lunar eclipse type, contact timings, local visibility,
-  and sūtak windows (9h lunar / 12h solar) for any year and place.
+- **Grahaṇa (eclipses)** — solar & lunar eclipse type (global *and* as seen from the
+  place), contact timings, local visibility with obscuration, and sūtak windows
+  (9h lunar / 12h solar) for any year and place.
 - **Astronomy primitives** — Lahiri ayanāṁśa (Swiss-Ephemeris-aligned: anchor at
   J2000.0 + IAU 2006 precession, matching `SE_SIDM_LAHIRI` to <0.05″ over 1900–2200),
   sidereal longitudes and Sun rāśi, new moons, solar ingress (saṅkrānti).
@@ -255,6 +256,15 @@ muhūrtas).
 **4b. Grahaṇa (eclipses)** — `lunarEclipses(year, loc?)`, `solarEclipses(year, loc?)` →
 eclipse type, contact phases (ISO-UTC `IsoWindow`s), local visibility, and sūtak.
 Types: `LunarEclipse`, `SolarEclipse`, `GrahanKind`.
+
+> **Solar `kind` is global, `local.kind` is what the place sees.** `SolarEclipse.kind`
+> is the circumstance at greatest eclipse *somewhere on Earth*; a total eclipse is
+> total only along a narrow path and partial across the rest of its penumbra. Label
+> a calendar entry from `local.kind` (with `local.obscuration`, 0–1, for severity).
+> E.g. for 12 Aug 2026: `kind: "total"` everywhere, but `local.kind` is `"total"` in
+> Valencia (100%), `"partial"` in Madrid (99.97%, just outside the path limit) and
+> `"partial"` in Calgary (2%). A lunar eclipse's `kind` needs no such split — it is
+> the same for every observer who can see the Moon.
 
 **5. Festival engine** — `computeFestivals`, `computeFestival`, `selectDayByPervasion`
 (the pure selector), and the rule data: `CORE_RULES` plus the generators
