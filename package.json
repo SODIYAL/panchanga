@@ -46,6 +46,8 @@
     "prepare": "tsc -p tsconfig.json",
     "test": "vitest run",
     "audit:ephemeris": "npm run prepare && node scripts/ephemeris-audit.mjs",
+    "rp:parse": "node scripts/rp-parse.mjs",
+    "rp:diff": "npm run prepare && node scripts/rp-diff.mjs",
     "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {

@@ -324,6 +324,18 @@ export function moonrise(date: Date, loc: GeoLocation): Date | null {
 }
 
 /**
+ * Convenience wrapper: moonset for the local day of `date` at `loc`.
+ * Returns `null` if none occurs (polar / libration edge cases).
+ *
+ * Independent of `moonrise`: the Moon runs ~50 min late each day, so roughly one
+ * civil day per lunation holds a set with no rise (or the reverse). Either may
+ * be `null` while the other is present.
+ */
+export function moonset(date: Date, loc: GeoLocation): Date | null {
+  return riseSet("set", date, loc, Body.Moon);
+}
+
+/**
  * Convenience wrapper: sunset for the local day of `date` at `loc`.
  * Returns `null` if none occurs (polar midnight-sun).
  */
