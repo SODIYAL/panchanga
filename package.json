@@ -54,7 +54,7 @@
     "astronomy-engine": "^2"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "sweph": "^2.10.3-7",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
